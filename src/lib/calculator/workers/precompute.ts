@@ -1,11 +1,12 @@
 /// <reference lib="webworker" />
 
-import type { Cache } from "$lib/stores/cache";
+import { MathUtil } from "$lib/math";
+import { type Cache } from "$lib/stores/cache";
 import { generateESeriesValues, type CachedESeries, type ESeries } from "../eseries";
 import type { Result } from "true-myth";
 import { err, ok } from "true-myth/result";
 
-const CACHE_VERSION = 6;
+const CACHE_VERSION = 10;
 const OPFS_DIR = `precomputed-v${CACHE_VERSION}`;
 
 function radixSortIndices(values: Float32Array): Uint32Array {
@@ -75,7 +76,7 @@ function generateResistorCombinations(resistors: number[]) {
 	return [radixSortIndices(seriesResults), radixSortIndices(parallelResults), seriesResults, parallelResults, r1s, r2s]
 }
 
-function generateResistorCombinationsForESeries(eSeries: CachedESeries): Cache {
+function generateResistorCombinationsForESeries(eSeries: CachedESeries) {
 	let values = generateESeriesValues(eSeries, -12, 7);
 	let combInfo = generateResistorCombinations(values);
 
@@ -87,6 +88,7 @@ function generateResistorCombinationsForESeries(eSeries: CachedESeries): Cache {
 		parallelResults: combInfo[3] as Float32Array,
 		r1s: combInfo[4] as Float32Array,
 		r2s: combInfo[5] as Float32Array,
+		resistorValues: new Float32Array(new SharedArrayBuffer(0))
 	};
 
 	return results;
@@ -108,14 +110,14 @@ function serializeCache(c: Cache) {
 	let bytes = new Uint8Array(totalBytes);
 	const view = new DataView(bytes.buffer);
 
-	// Encoder header
+	// Encode header
 	view.setUint32(0, CACHE_VERSION, true);
 
-	// encode data
-	let offset = headerBytes;
-	view.setUint32(offset, c.eSeries, true);
-	offset += 4;
+	// Encoder E-Series
+	view.setUint32(4, c.eSeries, true);
 
+	// encode data
+	let offset = 8;
 	for (const arr of arrays) {
 		view.setUint32(offset, arr.length, true);
 		offset += 4;
@@ -127,7 +129,7 @@ function serializeCache(c: Cache) {
 	return bytes;
 }
 
-function deserializeCache(bytes: Uint8Array): Result<Cache, unknown> {
+function deserializeCache(bytes: Uint8Array<SharedArrayBuffer>): Result<Cache, unknown> {
 	const view = new DataView(bytes.buffer);
 	const cacheVersion = view.getUint32(0, true);
 
@@ -166,6 +168,7 @@ function deserializeCache(bytes: Uint8Array): Result<Cache, unknown> {
 		parallelResults: nextFloat32Array(),
 		r1s: nextFloat32Array(),
 		r2s: nextFloat32Array(),
+		resistorValues: new Float32Array(new SharedArrayBuffer(MathUtil.inverseTriangularNumber(view.getUint32(8, true)) * 4)),
 	})
 }
 
@@ -182,7 +185,7 @@ async function opfsGetCache(key: string) {
 
 		return deserializeCache(buf);
 	} catch {
-		return err(); // directory or file doesn't exist yet
+		return err("Failed to deserialize cache"); // directory or file doesn't exist yet
 	}
 }
 
@@ -201,7 +204,7 @@ async function opfsPutCache(key: string, value: Cache) {
 
 		return ok();
 	} catch {
-		return err();
+		return err("Failed to store cache");
 	}
 }
 
@@ -215,8 +218,27 @@ async function opfsPurgeOldCache() {
 		}
 		return ok();
 	} catch {
-		return err();
+		return err("Failed to purge old cache");
 	}
+}
+
+export function* iterResistorValuesFromR1s(r1s: Float32Array) {
+	const count = r1s.length;
+	const n = Math.round((-1 + Math.sqrt(1 + 8 * count)) / 2);
+
+	for (let a = 0; a < n; a++) {
+		yield r1s[a * n - (a * (a - 1)) / 2];
+	}
+}
+
+function computeResistorValues(r1s: Float32Array) {
+	let resistorValues = new Float32Array(new SharedArrayBuffer(MathUtil.inverseTriangularNumber(r1s.length) * 4));
+	let i = 0;
+	for (let r of iterResistorValuesFromR1s(r1s)) {
+		resistorValues[i++] = r;
+	}
+
+	return resistorValues ;
 }
 
 self.onmessage = async (e: MessageEvent<{ eseries: CachedESeries }>) => {
@@ -224,10 +246,15 @@ self.onmessage = async (e: MessageEvent<{ eseries: CachedESeries }>) => {
 	const [cached, _] = await Promise.all([opfsGetCache(cacheKey), opfsPurgeOldCache()]);
 	if (cached.isOk) {
 		console.log("Using cached combinations for", cacheKey);
+		cached.value.resistorValues = computeResistorValues(cached.value.r1s);
 		return self.postMessage({ results: cached.value });
+	} else {
+		console.error(cached.error);
 	}
 
-	const results = generateResistorCombinationsForESeries(e.data.eseries);
+	let results = generateResistorCombinationsForESeries(e.data.eseries);
+	results.resistorValues = computeResistorValues(results.r1s);
+
 	await opfsPutCache(cacheKey, results);
 
 	self.postMessage({ results });

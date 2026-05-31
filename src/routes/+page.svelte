@@ -15,7 +15,7 @@
 	let active: "resistor" | "capacitor" | "voltage-divider" = $state("resistor");
 	let v1: number = $state(0);
 	let v2: number = $state(0);
-	let n: number = $state(1);
+	let n: 1 | 2 | 3 = $state(1);
 	let e24Subset = $state<E24Subset>(24);
 	let e96Subset = $state<E96Subset>(96);
 	let e192Selected = $state(false);

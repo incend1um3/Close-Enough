@@ -9,6 +9,7 @@ export type Cache = {
 	parallelResults: Float32Array,
 	r1s: Float32Array,
 	r2s: Float32Array,
+	resistorValues: Float32Array,
 };
 
 export const e24CacheStore = writable<Cache | null>(null);

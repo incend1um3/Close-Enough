@@ -21,11 +21,7 @@
 			case 'single': return 1;
 			case 'series':
 			case 'parallel': return 2;
-			case 's3':
-			case 'p3':
-			case 's2p1':
-			case 'p2s1': return 3;
-			default: return 0;
+			default: return 3;
 		}
 	})
 </script>
