@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+@theme {
+	--color-bg-100: --color-amber-50;
+	--color-bg-200: color-mix(in srgb, var(--color-amber-50) 97%, black);
+}
+
+@layer base {
+	* {
+		font-size: 16px;
+		@apply font-mono;
+	}
+
+	body {
+		@apply p-12;
+		background-color: color-mix(in srgb, theme(colors.amber.50) 97%, black);
+	}
+}
