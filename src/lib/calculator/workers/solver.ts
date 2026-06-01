@@ -1,8 +1,8 @@
 import { MathUtil } from "$lib/math";
-import { e192CacheStore, e24CacheStore, e96CacheStore, iterCombinationsFromCache, iterResistorValuesFromCache, type Cache } from "$lib/stores/cache";
+import { e192CacheStore, e24CacheStore, e96CacheStore, iterResistorValuesFromCache, type Cache } from "$lib/stores/cache";
 import { FixedReverseHeap } from "mnemonist";
 import { get } from "svelte/store";
-import { type E96Subset, type E24Subset, type ESeries, isBaseInESeries, isValueBaseInEseries, type CachedESeries } from "../eseries";
+import { type E96Subset, type E24Subset, type ESeries, isValueBaseInEseries } from "../eseries";
 import { expose } from 'comlink';
 
 const ONE_MICRO = 1e-6;
@@ -54,7 +54,7 @@ const START_DECADE = -12;
 function decadeBounds(cache: Cache, minDecade: number, maxDecade: number) {
 	const basesLen = cache.eSeries; // 24 | 96 | 192
 	const lo = Math.max(0, (minDecade - START_DECADE)) * basesLen;
-	const hi = Math.min(cache.resistorValues.length, (maxDecade - START_DECADE + 1) * basesLen);
+	const hi = Math.min(cache.resistorValues.length - 1, (maxDecade - START_DECADE + 1) * basesLen);
 	return [lo, hi] as const; // [lo, hi)
 }
 
@@ -243,11 +243,14 @@ export function findClosestResistorValuesN2(ohms: number, e24Subset: E24Subset |
 		.sort((a, b) => a.percentDiff - b.percentDiff);
 }
 
-function* closestResistorValues(cache: Cache, eSeries: ESeries, target: number, min = 0) {
-	const bounds = decadeBounds(cache, -6, 7);
+// Can't use generators in a hot loop because we'd be thrashing the GC
+const _scratch = new Float32Array(8);
+function closestResistorValues(cache: Cache, eSeries: ESeries, target: number, min = 0, bounds: readonly [number, number]) {
 	let index = binarySearch(cache.resistorValues, Math.max(target, min), bounds[0], bounds[1]);
 	let leftCount = Math.min(index, 2);
 	let rightCount = Math.min(cache.resistorValues.length - 1 - index, 2);
+
+	let count = 0;
 
 	// All values in cache are eligible, so don't filter
 	if (eSeries === 24 || eSeries === 96 || eSeries === 192) {
@@ -255,11 +258,10 @@ function* closestResistorValues(cache: Cache, eSeries: ESeries, target: number, 
 			let value = cache.resistorValues[i];
 			if (value < min) continue;
 
-			let diff = MathUtil.percentageDifference(target, value);
-			yield { value, diff, index: i };
+			_scratch[count++] = value
 		}
 
-		return;
+		return count;
 	}
 
 	let valuesYieldedFromLeft = 0;
@@ -273,8 +275,7 @@ function* closestResistorValues(cache: Cache, eSeries: ESeries, target: number, 
 			continue;
 		}
 
-		let diff = MathUtil.percentageDifference(target, value);
-		yield { value, diff, index: left };
+		_scratch[count++] = value
 
 		left--;
 		valuesYieldedFromLeft++;
@@ -284,19 +285,18 @@ function* closestResistorValues(cache: Cache, eSeries: ESeries, target: number, 
 	let right = index;
 	while (valuesYieldedFromRight < 2 && right < cache.resistorValues.length) {
 		let value = cache.resistorValues[right];
-		if (value < min) continue;
-
-		if (!isValueBaseInEseries(value, eSeries)) {
-			right++;
+		if (value < min || !isValueBaseInEseries(value, eSeries)) {
+			right++
 			continue;
 		}
 
-		let diff = MathUtil.percentageDifference(target, value);
-		yield { value, diff, index: right };
+		_scratch[count++] = value
 
 		right++;
 		valuesYieldedFromRight++;
 	}
+
+	return count;
 }
 
 export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset | null, e96Subset: E96Subset | null, useE192: boolean): Combination[] {
@@ -311,21 +311,32 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 	) as any as Peekable<Combination>;
 
 	function run(cache: Cache, eSeries: ESeries) {
-		for (let combination of iterCombinationsFromCache(eSeries, 'series')) {
-			let seriesSearchTarget = ohms - combination.result;
-			let parallelSearchTarget = (ohms * combination.result) / (combination.result - ohms);
+		const bounds = decadeBounds(cache, -6, 7);
+
+		for (let i = 0; i < cache.r1s.length; i++) {
+			const r1 = cache.r1s[i], r2 = cache.r2s[i], result = cache.seriesResults[i];
+			if ((eSeries !== 24 && eSeries !== 96 && eSeries !== 192) && // early exit
+				!(isValueBaseInEseries(r1, eSeries) || isValueBaseInEseries(r2, eSeries))
+			) {
+				continue;
+			}
+
+			let seriesSearchTarget = ohms - result;
+			let parallelSearchTarget = (ohms * result) / (result - ohms);
 	
 			if (seriesSearchTarget >= HUNDRED_MICRO) {
-				for (let v of closestResistorValues(cache, eSeries, seriesSearchTarget, combination.r2)) {
-					let combinationResult = combination.result + v.value;
-					let percentDiff = MathUtil.percentageDifference(ohms, combinationResult);
+				const count = closestResistorValues(cache, eSeries, seriesSearchTarget, r2, bounds);
+				for (let i = 0; i < count; i++) {
+					let value = _scratch[i];
+					let combinationResult = result + value;
+					let percentDiff = Math.abs(ohms - combinationResult);
 
 					if (heap.size < 20 || heap.peek()!.percentDiff > percentDiff) {
 						heap.push({
 							type: 'r+r+r',
-							v1: combination.r1,
-							v2: combination.r2,
-							v3: v.value,
+							v1: r1,
+							v2: r2,
+							v3: value,
 							percentDiff,
 							result: combinationResult
 						})
@@ -333,17 +344,19 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 				}
 			}
 	
-			if (combination.result > ohms && parallelSearchTarget >= HUNDRED_MICRO) {
-				for (let v of closestResistorValues(cache, eSeries, parallelSearchTarget)) {
-					let combinationResult = (combination.result * v.value) / (combination.result + v.value);
-					let percentDiff = MathUtil.percentageDifference(ohms, combinationResult);
+			if (result > ohms && parallelSearchTarget >= HUNDRED_MICRO) {
+				const count = closestResistorValues(cache, eSeries, parallelSearchTarget, 0, bounds);
+				for (let i = 0; i < count; i++) {
+					let value = _scratch[i];
+					let combinationResult = (result * value) / (result + value);
+					let percentDiff = Math.abs(ohms - combinationResult);
 
 					if (heap.peek()!.percentDiff > percentDiff) {
 						heap.push({
 							type: '(r+r)||r',
-							v1: combination.r1,
-							v2: combination.r2,
-							v3: v.value,
+							v1: r1,
+							v2: r2,
+							v3: value,
 							percentDiff,
 							result: combinationResult
 						});
@@ -353,21 +366,30 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 		}
 	
 	
-		for (let combination of iterCombinationsFromCache(eSeries, 'parallel')) {
-			let seriesSearchTarget = ohms - combination.result;
-			let parallelSearchTarget = (ohms * combination.result) / (combination.result - ohms);
+		for (let i = 0; i < cache.r1s.length; i++) {
+			const r1 = cache.r1s[i], r2 = cache.r2s[i], result = cache.parallelResults[i];
+			if ((eSeries !== 24 && eSeries !== 96 && eSeries !== 192) && // early exit
+				!(isValueBaseInEseries(r1, eSeries) || isValueBaseInEseries(r2, eSeries))
+			) {
+				continue;
+			}
+
+			let seriesSearchTarget = ohms - result;
+			let parallelSearchTarget = (ohms * result) / (result - ohms);
 	
 			if (seriesSearchTarget >= HUNDRED_MICRO) {
-				for (let v of closestResistorValues(cache, eSeries, seriesSearchTarget)) {
-					let combinationResult = combination.result + v.value;
-					let percentDiff = MathUtil.percentageDifference(ohms, combinationResult);
+				const count = closestResistorValues(cache, eSeries, seriesSearchTarget, 0, bounds);
+				for (let i = 0; i < count; i++) {
+					let value = _scratch[i];
+					let combinationResult = result + value;
+					let percentDiff = Math.abs(ohms - combinationResult);
 
 					if (heap.peek()!.percentDiff > percentDiff) {
 						heap.push({
 							type: '(r||r)+r',
-							v1: combination.r1,
-							v2: combination.r2,
-							v3: v.value,
+							v1: r1,
+							v2: r2,
+							v3: value,
 							percentDiff,
 							result: combinationResult
 						})
@@ -375,17 +397,19 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 				}
 			}
 	
-			if (combination.result > ohms && parallelSearchTarget >= HUNDRED_MICRO) {
-				for (let v of closestResistorValues(cache, eSeries, parallelSearchTarget, combination.r2)) {
-					let combinationResult = (combination.result * v.value) / (combination.result + v.value);
-					let percentDiff = MathUtil.percentageDifference(ohms, combinationResult);
+			if (result > ohms && parallelSearchTarget >= HUNDRED_MICRO) {
+				const count = closestResistorValues(cache, eSeries, parallelSearchTarget, r2, bounds);
+				for (let i = 0; i < count; i++) {
+					let value = _scratch[i];
+					let combinationResult = (result * value) / (result + value);
+					let percentDiff = Math.abs(ohms - combinationResult);
 
 					if (heap.peek()!.percentDiff > percentDiff) {
 						heap.push({
 							type: 'r||r||r',
-							v1: combination.r1,
-							v2: combination.r2,
-							v3: v.value,
+							v1: r1,
+							v2: r2,
+							v3: value,
 							percentDiff,
 							result: combinationResult
 						});
@@ -401,11 +425,16 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 
 	let n2Results = findClosestResistorValuesN2(ohms, e24Subset, e96Subset, useE192);
 	for (const r of n2Results) {
+		r.percentDiff = r.percentDiff * ohms / 100;
 		heap.push(r);
 	}
 
-	return (heap.consume() as Array<Combination>)
-		.sort((a, b) => a.percentDiff - b.percentDiff);
+	let arr = (heap.consume() as Array<Combination>).sort((a, b) => a.percentDiff - b.percentDiff);
+	for (let c of arr) {
+		c.percentDiff = c.percentDiff / ohms * 100;
+	}
+
+	return arr;
 }
 
 const api = {

@@ -47,14 +47,13 @@ export function* iterResistorValuesFromCache(eSeries: ESeries) {
 	}
 }
 
-export function* iterCombinationsFromCache(eSeries: ESeries, type: 'series' | 'parallel') {
+export function* iterCombinationsFromCacheUnsorted(eSeries: ESeries, type: 'series' | 'parallel') {
 	let cache = pickCacheFromESeries(eSeries)!;
 
-	const sortedIndices = type === 'series' ? cache.sortedSeriesIndices : cache.sortedParallelIndices;
 	const combinations = type === 'series' ? cache.seriesResults : cache.parallelResults;
 
 	if (eSeries === 24 || eSeries === 96 || eSeries === 192) {
-		for (const i of sortedIndices) {
+		for (let i = 0; i < cache.r1s.length; i++) {
 			yield {
 				r1: cache.r1s[i],
 				r2: cache.r2s[i],
@@ -62,7 +61,7 @@ export function* iterCombinationsFromCache(eSeries: ESeries, type: 'series' | 'p
 			}
 		}
 	} else {
-		for (const i of sortedIndices) {
+		for (let i = 0; i < cache.r1s.length; i++) {
 			let r1 = cache.r1s[i];
 			let r2 = cache.r2s[i];
 			if (isValueBaseInEseries(r1, eSeries) && isValueBaseInEseries(r2, eSeries)) {

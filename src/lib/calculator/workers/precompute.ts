@@ -222,20 +222,14 @@ async function opfsPurgeOldCache() {
 	}
 }
 
-export function* iterResistorValuesFromR1s(r1s: Float32Array) {
-	const count = r1s.length;
-	const n = Math.round((-1 + Math.sqrt(1 + 8 * count)) / 2);
-
-	for (let a = 0; a < n; a++) {
-		yield r1s[a * n - (a * (a - 1)) / 2];
-	}
-}
-
 function computeResistorValues(r1s: Float32Array) {
-	let resistorValues = new Float32Array(new SharedArrayBuffer(MathUtil.inverseTriangularNumber(r1s.length) * 4));
+	const count = r1s.length;
+	const n = MathUtil.inverseTriangularNumber(count);
+	let resistorValues = new Float32Array(new SharedArrayBuffer(n * 4));
+	
 	let i = 0;
-	for (let r of iterResistorValuesFromR1s(r1s)) {
-		resistorValues[i++] = r;
+	for (let a = 0; a < n; a++) {
+		resistorValues[i++] = r1s[a * n - (a * (a - 1)) / 2];
 	}
 
 	return resistorValues ;
@@ -243,19 +237,40 @@ function computeResistorValues(r1s: Float32Array) {
 
 self.onmessage = async (e: MessageEvent<{ eseries: CachedESeries }>) => {
 	const cacheKey = `e-${e.data.eseries}`
+
+	const t0 = performance.now();
 	const [cached, _] = await Promise.all([opfsGetCache(cacheKey), opfsPurgeOldCache()]);
+	const diskMs = performance.now() - t0;
+
 	if (cached.isOk) {
-		console.log("Using cached combinations for", cacheKey);
+		const t1 = performance.now();
 		cached.value.resistorValues = computeResistorValues(cached.value.r1s);
-		return self.postMessage({ results: cached.value });
+		const computeMs = performance.now() - t1;
+
+		console.log(`[cache HIT] disk=${diskMs.toFixed(2)}ms compute=${computeMs.toFixed(2)}ms`, { cacheKey });
+		const t2 = performance.now();
+		self.postMessage({ results: cached.value });
+		console.log(`[postMessage] transfer=${(performance.now() - t2).toFixed(2)}ms`);
+		return;
 	} else {
-		console.error(cached.error);
+		console.error(`[cache MISS] disk=${diskMs.toFixed(2)}ms`, cached.error);
 	}
 
+	const t2 = performance.now();
 	let results = generateResistorCombinationsForESeries(e.data.eseries);
+	const generateMs = performance.now() - t2;
+
+	const t3 = performance.now();
 	results.resistorValues = computeResistorValues(results.r1s);
+	const computeMs = performance.now() - t3;
 
+	const t4 = performance.now();
 	await opfsPutCache(cacheKey, results);
+	const writeMs = performance.now() - t4;
 
+	console.log(`[cache MISS] generate=${generateMs.toFixed(2)}ms compute=${computeMs.toFixed(2)}ms write=${writeMs.toFixed(2)}ms`, { cacheKey });
+
+	const t5 = performance.now();
 	self.postMessage({ results });
+	console.log(`[postMessage] transfer=${(performance.now() - t5).toFixed(2)}ms`);
 }

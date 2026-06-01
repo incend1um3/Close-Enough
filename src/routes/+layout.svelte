@@ -5,23 +5,25 @@
 	import { e192CacheStore, e24CacheStore, e96CacheStore, type Cache } from '$lib/stores/cache';
 	import PrecomputeWorker from "$lib/calculator/workers/precompute?worker";
 	import { get } from 'svelte/store';
+	import { browser } from '$app/environment';
 
 	let { children } = $props();
 
-	onMount(async () => {
+	const workers = browser ? [24, 96, 192].map(() => new PrecomputeWorker()) : [];
+
+	onMount(() => {
 		if (get(e192CacheStore) !== null) {
 			return;
 		};
 
 		console.time("precompute");
-		Promise.all([24, 96, 192].map(eseries => 
+		Promise.all([24, 96, 192].map((eseries, i) => 
 			new Promise((resolve) => {
-				let worker = new PrecomputeWorker();
-				worker.onmessage = e => {
+				workers[i].onmessage = e => {
 					resolve(e.data.results);
-					worker.terminate();
+					workers[i].terminate();
 				};
-				worker.postMessage({ eseries });
+				workers[i].postMessage({ eseries });
 			})
 			.then(results => {
 				switch (eseries) {
@@ -32,8 +34,8 @@
 			})
 		))
 		.then(() => {
-			console.info("Precomputed series and parallel combinations for N=2");
 			console.timeEnd("precompute");
+			console.info("Precomputed series and parallel combinations for N=2");
 		});
 	})
 </script>
