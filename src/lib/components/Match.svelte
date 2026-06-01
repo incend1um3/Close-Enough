@@ -6,6 +6,10 @@
 	import SeriesResistor from './circuit-display/SeriesResistor.svelte';
 	import ParallelResistor from './circuit-display/ParallelResistor.svelte';
 	import SingleResistor from './circuit-display/SingleResistor.svelte';
+	import Parallel3 from './circuit-display/Parallel3.svelte';
+	import Series3 from './circuit-display/Series3.svelte';
+	import SeriesTwoParallelOne from './circuit-display/SeriesTwoParallelOne.svelte';
+	import Parallel2Series1 from './circuit-display/Parallel2Series1.svelte';
 
 	const { 
 		targetValue,
@@ -48,6 +52,14 @@
 			<SeriesResistor r1={selectedCombination.v1} r2={selectedCombination.v2}/>
 		{:else if selectedCombination.type === 'parallel'}
 			<ParallelResistor r1={selectedCombination.v1} r2={selectedCombination.v2}/>
+		{:else if selectedCombination.type === "r+r+r"}
+			<Series3 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+		{:else if selectedCombination.type === "r||r||r"}
+			<Parallel3 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+		{:else if selectedCombination.type === "(r+r)||r"}
+			<SeriesTwoParallelOne r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+		{:else if selectedCombination.type === "(r||r)+r"}
+			<Parallel2Series1 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
 		{/if}
 	</div>
 </div>
