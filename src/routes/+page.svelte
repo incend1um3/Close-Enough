@@ -11,6 +11,7 @@
 	import { debounce } from 'lodash-es';
 	import { onMount } from "svelte";
 	import Match from "$lib/components/Match.svelte";
+	import { browser } from "$app/environment";
 
 	let active: "resistor" | "capacitor" | "voltage-divider" = $state("resistor");
 	let v1: number = $state(0);
@@ -19,6 +20,9 @@
 	let e24Subset = $state<E24Subset>(24);
 	let e96Subset = $state<E96Subset>(96);
 	let e192Selected = $state(false);
+	
+	let solveTime = $state(0);
+	let resultsPromise: Promise<Combination[]> | undefined = $state();
 
 	$effect(() => {
 		localStorage.setItem("values", JSON.stringify({
@@ -32,9 +36,9 @@
 	})
 
 	// prevent worker from initializing during SSR
-	let rawSolverWorker: Worker | undefined;
-	let worker: Remote<SolverAPI> | undefined;
-	let resultsPromise: Promise<Combination[]> | undefined = $state();
+	let rawSolverWorker = browser ? new SolverWorker() : undefined;
+	let worker = browser ? wrap<SolverAPI>(rawSolverWorker!) : undefined;
+	let workerInited = false;
 
 	let triggerSolve = debounce(() => {
 		const [e24Cache, e96Cache, e192Cache] = [get(e24CacheStore), get(e96CacheStore), get(e192CacheStore)]
@@ -43,15 +47,18 @@
 			return;
 		}
 
-	    if (!worker) {
-			rawSolverWorker = new SolverWorker();
-			worker = wrap<SolverAPI>(rawSolverWorker);
-			worker.init(e24Cache, e96Cache, e192Cache);
+	    if (!workerInited) {
+			worker!.init(e24Cache, e96Cache, e192Cache);
+			workerInited = true;
 		}
 
-    	console.time("solve");
-    	resultsPromise = worker.solve({ n, e24Subset, e96Subset, useE192: e192Selected, target: v1 })
-    	    .then(r => { console.timeEnd("solve"); return r; });
+    	const t1 = performance.now();
+    	resultsPromise = worker!.solve({ n, e24Subset, e96Subset, useE192: e192Selected, target: v1 })
+    	    .then(r => { 
+				solveTime = performance.now() - t1; 
+				console.log(`solve time: ${solveTime.toFixed(2)}ms`)
+				return r;
+			});
 		}, 500);
 	
 	$effect(() => {
@@ -62,7 +69,7 @@
 
 <div class="flex flex-col">
 	<div class="flex align-bottom items-end gap-8 mb-8">
-		<h1 class="text-5xl">Good Enough</h1>
+		<h1 class="text-5xl">Close Enough</h1>
 		<sub class="text-xl">Calculate the resistor/capacitor combination required to achieve your target value</sub>
 	</div>
 
@@ -93,7 +100,7 @@
 			{:then results}
 				{#if results}
 					<div class="flex flex-col gap-3 flex-1">
-						<BestMatch selectedCombination={results[0]} targetValue={v1} />
+						<BestMatch selectedCombination={results[0]} targetValue={v1} solveTime={solveTime}/>
 						<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
 						<div class="grid grid-cols-2 gap-4">
 							{#each results.splice(1) as c}

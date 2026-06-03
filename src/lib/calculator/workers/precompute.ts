@@ -6,7 +6,7 @@ import { generateESeriesValues, type CachedESeries, type ESeries } from "../eser
 import type { Result } from "true-myth";
 import { err, ok } from "true-myth/result";
 
-const CACHE_VERSION = 10;
+const CACHE_VERSION = 11;
 const OPFS_DIR = `precomputed-v${CACHE_VERSION}`;
 
 function radixSortIndices(values: Float32Array): Uint32Array {

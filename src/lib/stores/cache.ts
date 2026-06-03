@@ -29,61 +29,15 @@ export function pickCacheFromESeries(eSeries: ESeries) {
 export function* iterResistorValuesFromCache(eSeries: ESeries) {
 	let cache = pickCacheFromESeries(eSeries)!;
 
-	const count = cache.r1s.length;
-	const n = Math.round((-1 + Math.sqrt(1 + 8 * count)) / 2);
-
 	if (eSeries === 24 || eSeries === 96 || eSeries === 192) {
-		for (let a = 0; a < n; a++) {
-			yield cache.r1s[a * n - (a * (a - 1)) / 2];
+		for (const r of cache.resistorValues) {
+			yield r;
 		}
 	} else {
-		for (let a = 0; a < n; a++) {
-			let value = cache.r1s[a * n - (a * (a - 1)) / 2];
-			const base = eSeriesBaseFromValue(value);
-			if (isBaseInESeries(base, eSeries)) {
-				yield value;
+		for (const r of cache.resistorValues) {
+			if (isValueBaseInEseries(r, eSeries)) {
+				yield r;
 			}
 		}
-	}
-}
-
-export function* iterCombinationsFromCacheUnsorted(eSeries: ESeries, type: 'series' | 'parallel') {
-	let cache = pickCacheFromESeries(eSeries)!;
-
-	const combinations = type === 'series' ? cache.seriesResults : cache.parallelResults;
-
-	if (eSeries === 24 || eSeries === 96 || eSeries === 192) {
-		for (let i = 0; i < cache.r1s.length; i++) {
-			yield {
-				r1: cache.r1s[i],
-				r2: cache.r2s[i],
-				result: combinations[i]
-			}
-		}
-	} else {
-		for (let i = 0; i < cache.r1s.length; i++) {
-			let r1 = cache.r1s[i];
-			let r2 = cache.r2s[i];
-			if (isValueBaseInEseries(r1, eSeries) && isValueBaseInEseries(r2, eSeries)) {
-				yield {
-					r1: cache.r1s[i],
-					r2: cache.r2s[i],
-					result: combinations[i]
-				}
-			}
-		}
-	}
-
-}
-
-export function* iterSeriesValues(cache: Cache) {
-	for (let index of cache.sortedSeriesIndices) {
-		yield { index, value: cache.seriesResults[index] }
-	}
-}
-
-export function* iterParallelValues(cache: Cache) {
-	for (let index of cache.sortedParallelIndices) {
-		yield { index, value: cache.parallelResults[index] }
 	}
 }

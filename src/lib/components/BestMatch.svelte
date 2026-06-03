@@ -13,10 +13,12 @@
 
 	const { 
 		targetValue,
-		selectedCombination
+		selectedCombination,
+		solveTime = 0,
 	}: {
 		targetValue: number,
-		selectedCombination: Combination ,
+		selectedCombination: Combination,
+		solveTime: number,
 	} = $props();
 
 	let percentageDifference = $derived(MathUtil.percentageDifference(targetValue, selectedCombination.result));
@@ -44,7 +46,7 @@
 	</div>
 	<p class="text-6xl tracking-wide">{formatSiValue(selectedCombination.result)}</p>
 	<div>
-		<p class="opacity-60 whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}</p>
+		<p class="opacity-60 whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}  •  Solved in {parseFloat(solveTime.toFixed(2))}ms</p>
 	</div>
 	<div class="mx-auto">
 		{#if selectedCombination.type === 'single'}

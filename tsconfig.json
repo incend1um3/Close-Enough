@@ -16,7 +16,6 @@
 			"node"
 		],
 		"noUnusedLocals": false,
-    	"noUnusedParameters": false,
-		"allowUnusedLabels": true
+    	"noUnusedParameters": false
 	}
 }
