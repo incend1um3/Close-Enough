@@ -9,10 +9,10 @@
 		r1: number,
 	} = $props()
 
-	const R1: Part = { x:150, y: 40, orientation: 'horizontal', length: 250 };
+	const R1: Part = { x: 150, y: 50, orientation: 'horizontal', length: 250 };
 </script>
 
-<svg viewBox="0 0 300 100" width="300" height="100" style="color:#1a1a1a;" class="bg-white">
+<svg viewBox="0 0 300 100" width="300" height="100" style="color:#1a1a1a;" class="bg-bg-200">
 	<!-- components -->
 	<Resistor {...R1} name="R1" value={formatSiValue(r1).replace(' ', '')} />
 </svg>

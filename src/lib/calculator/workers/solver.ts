@@ -4,6 +4,8 @@ import { FixedReverseHeap } from "mnemonist";
 import { get } from "svelte/store";
 import { type E96Subset, type E24Subset, type ESeries, isValueBaseInEseries } from "../eseries";
 import { expose } from 'comlink';
+import { z } from "zod";
+import { parserFor } from "true-myth/standard-schema";
 
 const ONE_MILLI = 1e-3;
 
@@ -29,24 +31,38 @@ export type Combination =
 		percentDiff: number,
 	};
 
-export type ComputeRequest = {
-	target: number,
-	n: 1 | 2 | 3,
-	e24Subset: E24Subset | null,
-	e96Subset: E96Subset | null,
-	useE192: boolean,
-}
+const E24SubsetSchema = z.union([z.literal(6), z.literal(12), z.literal(24)]);
+const E96SubsetSchema = z.union([z.literal(48), z.literal(96)]);
 
-export type VoltageDividerComputeRequest = {
-	vin: number,
-	vout: number,
-	constraint: { type: 'current', min: number, max: number } | { type: 'impedance', min: number, max: number },
-	maxOutputImpedance: number,
-	n: number,
-	e24Subset: E24Subset | null,
-	e96Subset: E96Subset | null,
-	useE192: boolean,
-}
+export const ComputeRequestSchema = z.object({
+	target: z.number(),
+	n: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+	e24Subset: E24SubsetSchema.nullable(),
+	e96Subset: E96SubsetSchema.nullable(),
+	useE192: z.boolean(),
+});
+
+export const parseComputeRequest = parserFor(ComputeRequestSchema);
+
+export const VoltageDividerComputeRequestSchema = z.object({
+	vin: z.number(),
+	vout: z.number(),
+	constraint: z.discriminatedUnion("type", [
+		z.object({ type: z.literal("current"), min: z.number(), max: z.number() }),
+		z.object({ type: z.literal("impedance"), min: z.number(), max: z.number() }),
+	]),
+	maxOutputImpedance: z.number(),
+	n: z.number(),
+	e24Subset: E24SubsetSchema.nullable(),
+	e96Subset: E96SubsetSchema.nullable(),
+	useE192: z.boolean(),
+});
+
+export const parseVoltageDividerComputeRequest = parserFor(VoltageDividerComputeRequestSchema);
+
+// Inferred types (can replace your existing `export type` declarations)
+export type ComputeRequest = z.infer<typeof ComputeRequestSchema>;
+export type VoltageDividerComputeRequest = z.infer<typeof VoltageDividerComputeRequestSchema>;
 
 export type VoltageDividerCombination = {
 	top:

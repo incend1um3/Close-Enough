@@ -1,5 +1,5 @@
 import { eSeriesBaseFromValue, isBaseInESeries, isValueBaseInEseries, type CachedESeries, type ESeries } from "$lib/calculator/eseries";
-import { get, writable } from "svelte/store";
+import { derived, get, writable } from "svelte/store";
 
 export type Cache = { 
 	eSeries: CachedESeries;
@@ -15,6 +15,11 @@ export type Cache = {
 export const e24CacheStore = writable<Cache | null>(null);
 export const e96CacheStore = writable<Cache | null>(null);
 export const e192CacheStore = writable<Cache | null>(null);
+
+export const allCacheLoaded = derived(
+	[e24CacheStore, e96CacheStore, e192CacheStore],
+	([$e24, $e96, $e192]) => $e24 !== null && $e96 !== null && $e192 !== null
+);
 
 export function pickCacheFromESeries(eSeries: ESeries) {
 	if (eSeries <= 24) {

@@ -45,7 +45,7 @@
 	<div>
 		<p class="opacity-60 whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}  •  Solved in {parseFloat(solveTime.toFixed(2))}ms</p>
 	</div>
-	<div class="mx-auto">
+	<div class="mx-auto mt-4">
 		{#if !isCombinationVoltageDivider(selectedCombination)}
 			{#if selectedCombination.type === 'single'}
 				<SingleResistor r1={selectedCombination.result} />

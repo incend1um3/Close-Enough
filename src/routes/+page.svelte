@@ -1,40 +1,51 @@
 <script lang="ts">
-	import { type E96Subset, type E24Subset } from "$lib/calculator/eseries";
 	import SolverWorker from "$lib/calculator/workers/solver?worker";
-	import { type SolverAPI, type Combination, type VoltageDividerCombination, type VoltageDividerComputeRequest } from "$lib/calculator/workers/solver";
+	import { type SolverAPI, type Combination, type VoltageDividerCombination, type VoltageDividerComputeRequest, VoltageDividerComputeRequestSchema, parseVoltageDividerComputeRequest, type ComputeRequest, parseComputeRequest } from "$lib/calculator/workers/solver";
 	import BestMatch from "$lib/components/BestMatch.svelte";
 	import Tab from "$lib/components/Tab.svelte";
 	import ValueInput from "$lib/components/ValueInput.svelte";
-	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
-	import { wrap, type Remote } from "comlink";
+	import { allCacheLoaded, e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
+	import { wrap } from "comlink";
 	import { get } from "svelte/store";
 	import { debounce } from 'lodash-es';
 	import Match from "$lib/components/Match.svelte";
 	import { browser } from "$app/environment";
 	import VoltageDividerInput from "$lib/components/VoltageDividerInput.svelte";
+	import { Maybe } from "true-myth";
+	import { toMaybe } from "true-myth/toolbelt";
+	import { untrack } from "svelte";
 
 	let active: "resistor" | "voltage-divider" = $state("resistor");
 
-	let voltageDividerComputeReq: VoltageDividerComputeRequest = $state({
-		vin: 5,
-		vout: 3.3,
-		constraint: {
-			'type': 'current',
-			min: 0,
-			max: 0.01
-		},
-		n: 2,
-		maxOutputImpedance: 100000,
-		e24Subset: 24,
-		e96Subset: null,
-		useE192: false,
-	});
-	let v1: number = $state(0);
-	let v2: number = $state(0);
-	let n: 1 | 2 | 3 = $state(1);
-	let e24Subset = $state<E24Subset>(24);
-	let e96Subset = $state<E96Subset>(96);
-	let e192Selected = $state(false);
+	let voltageDividerComputeReq: VoltageDividerComputeRequest = $state(Maybe.of(browser ? localStorage.getItem("voltage-divider-solver-values") : null)
+		.map(str => toMaybe(parseVoltageDividerComputeRequest(str)))
+		.flatten()
+		.unwrapOr({
+			vin: 5,
+			vout: 3.3,
+			constraint: {
+				'type': 'current',
+				min: 0,
+				max: 0.01
+			},
+			n: 2,
+			maxOutputImpedance: 100000,
+			e24Subset: 24,
+			e96Subset: null,
+			useE192: false,
+		})
+	);
+	let resistorComputeReq: ComputeRequest = $state(Maybe.of(browser ? localStorage.getItem("resistor-solver-values") : null)
+		.map(str => toMaybe(parseComputeRequest(str)))
+		.flatten()
+		.unwrapOr({
+			target: 9.81,
+			n: 2,
+			e24Subset: 24,
+			e96Subset: null,
+			useE192: false,
+		})
+	)
 	
 	let solveTime = $state(0);
 	let resultsPromise: Promise<Combination[]> | undefined = $state();
@@ -42,14 +53,8 @@
 	let solverState: 'idle' | 'solving' = $state('idle');
 
 	$effect(() => {
-		localStorage.setItem("values", JSON.stringify({
-			active,
-			v1,
-			v2,
-			e24Subset,
-			e96Subset,
-			e192Selected
-		}));
+		localStorage.setItem("resistor-solver-values", JSON.stringify(resistorComputeReq));
+		localStorage.setItem("voltage-divider-solver-values", JSON.stringify(voltageDividerComputeReq));
 	})
 
 	// prevent worker from initializing during SSR
@@ -58,20 +63,14 @@
 	let workerInited = false;
 
 	let triggerSolve = debounce(() => {
-		const [e24Cache, e96Cache, e192Cache] = [get(e24CacheStore), get(e96CacheStore), get(e192CacheStore)]
-		if (!e24Cache || !e96Cache || !e192Cache) {
-			console.warn("waiting for cache to load")
-			return;
-		}
-
 		solverState = "solving";
 	    if (!workerInited) {
-			worker!.init(e24Cache, e96Cache, e192Cache);
+			worker!.init(get(e24CacheStore)!, get(e96CacheStore)!, get(e192CacheStore)!);
 			workerInited = true;
 		}
 
     	const t1 = performance.now();
-    	resultsPromise = worker!.solve({ n, e24Subset, e96Subset, useE192: e192Selected, target: v1 })
+    	resultsPromise = worker!.solve(resistorComputeReq)
     	    .then(r => { 
 				solveTime = performance.now() - t1; 
 				console.log(`solve time: ${solveTime.toFixed(2)}ms`);
@@ -81,15 +80,9 @@
 		}, 500);
 
 	let triggerSolveVoltageDivider = debounce(() => {
-		const [e24Cache, e96Cache, e192Cache] = [get(e24CacheStore), get(e96CacheStore), get(e192CacheStore)]
-		if (!e24Cache || !e96Cache || !e192Cache) {
-			console.warn("waiting for cache to load")
-			return;
-		}
-
 		solverState = "solving";
-	    if (!workerInited) {
-			worker!.init(e24Cache, e96Cache, e192Cache);
+		if (!workerInited) {
+			worker!.init(get(e24CacheStore)!, get(e96CacheStore)!, get(e192CacheStore)!);
 			workerInited = true;
 		}
 
@@ -104,13 +97,31 @@
 		}, 500);
 	
 	$effect(() => {
-		n; e24Subset; e96Subset; e192Selected; v1; $state.snapshot(voltageDividerComputeReq);
-		if (active === "resistor") {
+		if (!$allCacheLoaded) {
+			return;
+		}
+
+		$state.snapshot(resistorComputeReq); $state.snapshot(voltageDividerComputeReq);
+		if (untrack(() => active) === "resistor") {
 			triggerSolve();
 		} else {
 			triggerSolveVoltageDivider();
 		}
-	})
+	});
+
+	// Solve on tab switch only if that tab has no results yet
+	$effect(() => {
+	    if (!$allCacheLoaded) return;
+	    
+		active;
+	    untrack(() => {
+	        if (active === "resistor" && resultsPromise === undefined) {
+	            triggerSolve();
+	        } else if (active !== "resistor" && voltageDividerResultsPromise === undefined) {
+	            triggerSolveVoltageDivider();
+	        }
+	    });
+	});
 </script>
 
 <div class="flex flex-col">
@@ -131,11 +142,11 @@
 	<div class="flex gap-12">
 		<ValueInput 
 			v1Label="TARGET RESISTANCE" 
-			bind:v1={v1} 
-			bind:n={n} 
-			bind:selectedE24Subset={e24Subset} 
-			bind:selectedE96Subset={e96Subset} 
-			bind:e192Selected={e192Selected}
+			bind:v1={resistorComputeReq.target} 
+			bind:n={resistorComputeReq.n} 
+			bind:selectedE24Subset={resistorComputeReq.e24Subset} 
+			bind:selectedE96Subset={resistorComputeReq.e96Subset} 
+			bind:e192Selected={resistorComputeReq.useE192}
 			symbol="Ω"
 			class="flex-2"
 		/>
@@ -146,11 +157,11 @@
 			{:then results}
 				{#if results}
 					<div class="flex flex-col gap-3 flex-3">
-						<BestMatch selectedCombination={results[0]} targetValue={v1} solveTime={solveTime}/>
+						<BestMatch selectedCombination={results[0]} targetValue={resistorComputeReq.target} solveTime={solveTime}/>
 						<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
 						<div class="grid grid-cols-2 gap-4">
 							{#each results.slice(1) as c}
-								<Match selectedCombination={c} targetValue={v1}/>
+								<Match selectedCombination={c} targetValue={resistorComputeReq.target}/>
 							{/each}
 						</div>
 					</div>

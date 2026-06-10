@@ -42,7 +42,7 @@
 	<div>
 		<p class="opacity-60 whitespace-pre text-sm mb-3">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}</p>
 	</div>
-	<div class="m-auto zoom-80">
+	<div class="mx-auto zoom-80">
 		{#if !isCombinationVoltageDivider(selectedCombination)}
 			{#if selectedCombination.type === 'single'}
 				<SingleResistor r1={selectedCombination.result} />
