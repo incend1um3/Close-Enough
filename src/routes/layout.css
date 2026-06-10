@@ -17,4 +17,12 @@
 		@apply p-12;
 		background-color: color-mix(in srgb, theme(colors.amber.50) 97%, black);
 	}
+
+	button {
+		@apply cursor-pointer;
+	}
+
+	input {
+		@apply min-w-0 w-full;
+	}
 }

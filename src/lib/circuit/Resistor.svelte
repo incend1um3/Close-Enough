@@ -42,7 +42,7 @@
   const angle    = $derived(orientation === 'vertical' ? 90 : 0);
 
   const labelGap = 8;
-  const lineH = 14;
+  const lineH = 20;
   const vLines = $derived([name, value].filter(Boolean)); // vertical: stacked
 </script>
 

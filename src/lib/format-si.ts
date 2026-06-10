@@ -16,7 +16,7 @@ const SI_PREFIXES: SiPrefix[] = [
 ];
 
 
-export function formatSiValue(value: number, symbol = "Ω"): string {
+export function formatSiValue(value: number, removeSpace = true, symbol = "Ω"): string {
 	if (!isFinite(value) || value < 0) {
 		throw new RangeError(`Value must be a finite non-negative number (got ${value})`);
 	}
@@ -34,5 +34,10 @@ export function formatSiValue(value: number, symbol = "Ω"): string {
 	const rounded = parseFloat(scaled.toPrecision(4));
 	const str = rounded.toString();
 
-	return str + " " + prefix.symbol;
+	const res = str + " " + prefix.symbol;
+	if (removeSpace) {
+		return res.replace(' ', '');
+	} else {
+		return res;
+	}
 }

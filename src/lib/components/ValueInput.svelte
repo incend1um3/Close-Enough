@@ -14,7 +14,8 @@
 		selectedE24Subset = $bindable(24),
 		selectedE96Subset = $bindable(96),
 		e192Selected = $bindable(false),
-		symbol 
+		symbol,
+		...rest
 	}: { 
 		v1: number, 
 		v2?: number, 
@@ -24,7 +25,8 @@
 		selectedE24Subset: E24Subset | null,
 		selectedE96Subset: E96Subset | null,
 		e192Selected: boolean,
-		symbol: string 
+		symbol: string,
+		class?: string,
 	} = $props();
 
 	function countSigFigs(s: string): number {
@@ -81,7 +83,7 @@
 	</div>
 {/snippet}
 
-<div class="p-8 border border-gray-300 shadow-sm w-fit bg-amber-50 self-start">
+<div class="p-8 border border-gray-300 shadow-sm w-fit bg-amber-50 self-start {rest.class}">
 	<div class="flex gap-8">
 		{@render inputBox(v1Label, 1)}
 		{#if v2Label}

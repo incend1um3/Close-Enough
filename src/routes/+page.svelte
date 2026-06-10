@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type E96Subset, type E24Subset } from "$lib/calculator/eseries";
 	import SolverWorker from "$lib/calculator/workers/solver?worker";
-	import { type SolverAPI, type Combination } from "$lib/calculator/workers/solver";
+	import { type SolverAPI, type Combination, type VoltageDividerCombination, type VoltageDividerComputeRequest } from "$lib/calculator/workers/solver";
 	import BestMatch from "$lib/components/BestMatch.svelte";
 	import Tab from "$lib/components/Tab.svelte";
 	import ValueInput from "$lib/components/ValueInput.svelte";
@@ -9,11 +9,26 @@
 	import { wrap, type Remote } from "comlink";
 	import { get } from "svelte/store";
 	import { debounce } from 'lodash-es';
-	import { onMount } from "svelte";
 	import Match from "$lib/components/Match.svelte";
 	import { browser } from "$app/environment";
+	import VoltageDividerInput from "$lib/components/VoltageDividerInput.svelte";
 
-	let active: "resistor" | "capacitor" | "voltage-divider" = $state("resistor");
+	let active: "resistor" | "voltage-divider" = $state("resistor");
+
+	let voltageDividerComputeReq: VoltageDividerComputeRequest = $state({
+		vin: 5,
+		vout: 3.3,
+		constraint: {
+			'type': 'current',
+			min: 0,
+			max: 0.01
+		},
+		n: 2,
+		maxOutputImpedance: 100000,
+		e24Subset: 24,
+		e96Subset: null,
+		useE192: false,
+	});
 	let v1: number = $state(0);
 	let v2: number = $state(0);
 	let n: 1 | 2 | 3 = $state(1);
@@ -23,6 +38,8 @@
 	
 	let solveTime = $state(0);
 	let resultsPromise: Promise<Combination[]> | undefined = $state();
+	let voltageDividerResultsPromise: Promise<VoltageDividerCombination[]> | undefined = $state();
+	let solverState: 'idle' | 'solving' = $state('idle');
 
 	$effect(() => {
 		localStorage.setItem("values", JSON.stringify({
@@ -47,6 +64,7 @@
 			return;
 		}
 
+		solverState = "solving";
 	    if (!workerInited) {
 			worker!.init(e24Cache, e96Cache, e192Cache);
 			workerInited = true;
@@ -56,14 +74,42 @@
     	resultsPromise = worker!.solve({ n, e24Subset, e96Subset, useE192: e192Selected, target: v1 })
     	    .then(r => { 
 				solveTime = performance.now() - t1; 
-				console.log(`solve time: ${solveTime.toFixed(2)}ms`)
+				console.log(`solve time: ${solveTime.toFixed(2)}ms`);
+				solverState = "idle";
+				return r;
+			});
+		}, 500);
+
+	let triggerSolveVoltageDivider = debounce(() => {
+		const [e24Cache, e96Cache, e192Cache] = [get(e24CacheStore), get(e96CacheStore), get(e192CacheStore)]
+		if (!e24Cache || !e96Cache || !e192Cache) {
+			console.warn("waiting for cache to load")
+			return;
+		}
+
+		solverState = "solving";
+	    if (!workerInited) {
+			worker!.init(e24Cache, e96Cache, e192Cache);
+			workerInited = true;
+		}
+
+    	const t1 = performance.now();
+    	voltageDividerResultsPromise = worker!.solveVoltageDivider($state.snapshot(voltageDividerComputeReq))
+    	    .then(r => { 
+				solveTime = performance.now() - t1; 
+				console.log(`solve time: ${solveTime.toFixed(2)}ms`);
+				solverState = "idle";
 				return r;
 			});
 		}, 500);
 	
 	$effect(() => {
-		n; e24Subset; e96Subset; e192Selected; v1;
-		triggerSolve();
+		n; e24Subset; e96Subset; e192Selected; v1; $state.snapshot(voltageDividerComputeReq);
+		if (active === "resistor") {
+			triggerSolve();
+		} else {
+			triggerSolveVoltageDivider();
+		}
 	})
 </script>
 
@@ -75,7 +121,6 @@
 
 	<Tab bind:active={active} tabs={[
 		{ id: "resistor", title: "Resistor", subtitle: "Series & Parallel", content: resistor},
-		{ id: "capacitor", title: "Capacitor", subtitle: "Series & Parallel", content: capacitor},
 		{ id: "voltage-divider", title: "Voltage Divider", subtitle: "Two Combinations", content: voltageDivider},
 		{ id: "rc-delay", title: "RC Constant", subtitle: "Resistor + Capacitor", content: rcDelay},
 	]}/>
@@ -83,7 +128,7 @@
 </div>
 
 {#snippet resistor()}
-	<div class="flex justify-between gap-12">
+	<div class="flex gap-12">
 		<ValueInput 
 			v1Label="TARGET RESISTANCE" 
 			bind:v1={v1} 
@@ -92,6 +137,7 @@
 			bind:selectedE96Subset={e96Subset} 
 			bind:e192Selected={e192Selected}
 			symbol="Ω"
+			class="flex-2"
 		/>
 			{#await resultsPromise}
 				<div class="bg-amber-50 border border-gray-300 shadow-sm">
@@ -99,11 +145,11 @@
 				</div>
 			{:then results}
 				{#if results}
-					<div class="flex flex-col gap-3 flex-1">
+					<div class="flex flex-col gap-3 flex-3">
 						<BestMatch selectedCombination={results[0]} targetValue={v1} solveTime={solveTime}/>
 						<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
 						<div class="grid grid-cols-2 gap-4">
-							{#each results.splice(1) as c}
+							{#each results.slice(1) as c}
 								<Match selectedCombination={c} targetValue={v1}/>
 							{/each}
 						</div>
@@ -117,10 +163,34 @@
 	</div>
 {/snippet}
 
-{#snippet capacitor()}
-{/snippet}
-
 {#snippet voltageDivider()}
+	<div class="flex gap-12">
+		<VoltageDividerInput
+			bind:computeReq={voltageDividerComputeReq}
+			class="flex-2"
+		/>
+		{#await voltageDividerResultsPromise}
+			<div class="bg-amber-50 border border-gray-300 shadow-sm">
+				<p>Solving...</p>
+			</div>
+		{:then results}
+			{#if results}
+				<div class="flex flex-col gap-3 flex-3">
+					<BestMatch selectedCombination={results[0]} targetValue={voltageDividerComputeReq.vout} solveTime={solveTime}/>
+					<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
+					<div class="grid grid-cols-2 gap-4">
+						{#each results.slice(1) as c}
+							<Match selectedCombination={c} targetValue={voltageDividerComputeReq.vout}/>
+						{/each}
+					</div>
+				</div>
+			{:else}
+				<div class="bg-amber-50 border border-gray-300 shadow-sm flex-2">
+					<p>Waiting for cache to load...</p>
+				</div>
+			{/if}		
+		{/await}
+	</div>
 {/snippet}
 
 {#snippet rcDelay()}

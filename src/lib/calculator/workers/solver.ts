@@ -41,10 +41,40 @@ export type VoltageDividerComputeRequest = {
 	vin: number,
 	vout: number,
 	constraint: { type: 'current', min: number, max: number } | { type: 'impedance', min: number, max: number },
+	maxOutputImpedance: number,
 	n: number,
 	e24Subset: E24Subset | null,
 	e96Subset: E96Subset | null,
 	useE192: boolean,
+}
+
+export type VoltageDividerCombination = {
+	top:
+		| {
+			type: 'single';
+			v1: number;
+		}
+		| {
+			type: 'series' | 'parallel';
+			v1: number;
+			v2: number;
+		},
+	bottom:
+		| {
+			type: 'single';
+			v1: number;
+		}
+		| {
+			type: 'series' | 'parallel';
+			v1: number;
+			v2: number;
+		},
+	outputImpedance: number,
+	totalImpedance: number,
+	current: number,
+	vin: number,
+	vout: number,
+	percentDiff: number,
 }
 
 type Peekable<T> = FixedReverseHeap<T> & { peek(): T | undefined };
@@ -57,6 +87,7 @@ function decadeBounds(cache: Cache, minDecade: number, maxDecade: number) {
 	return [lo, hi] as const; // [lo, hi)
 }
 
+// #region resistor
 export function findClosestResistorValuesN1(ohms: number, e24Subset: E24Subset | null, e96Subset: E96Subset | null, useE192: boolean) {
 	let heap = new FixedReverseHeap<{ type: 'single', result: number, percentDiff: number }>(
 		Array,
@@ -242,6 +273,7 @@ export function findClosestResistorValuesN2(ohms: number, e24Subset: E24Subset |
 		.sort((a, b) => a.percentDiff - b.percentDiff);
 }
 
+// #region Resistor N3
 // Can't use generators in a hot loop because we'd be thrashing the GC
 const indexScratch = new Uint32Array(20);
 export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset | null, e96Subset: E96Subset | null, useE192: boolean): Combination[] {
@@ -416,6 +448,152 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 
 	return arr;
 }
+// #endregion
+
+function solveVoltageDividerN2(
+	vin: number,
+	targetVout: number,
+	maxOutputImpedance: number,
+	minImpedance: number,
+	maxImpedance: number,
+	e24Subset: E24Subset | null, 
+	e96Subset: E96Subset | null, 
+	useE192: boolean
+): VoltageDividerCombination[] {
+	const e24Cache = get(e24CacheStore)!;
+	const e96Cache = get(e96CacheStore)!;
+	const e192Cache = get(e192CacheStore)!;
+
+	let heap = new FixedReverseHeap<VoltageDividerCombination>(
+		Array,
+		(a, b) => a.percentDiff - b.percentDiff,
+		20
+	) as any as Peekable<VoltageDividerCombination>;
+
+	function run(cache: Cache, subset: ESeries) {
+		const noFilter = subset === 24 || subset === 96 || subset === 192;
+		let [lo, hi] = decadeBounds(cache, -3, 7);
+
+		for (let i = lo; i <= hi; i++) {
+			const r1 = cache.resistorValues[i];
+			if (!noFilter && !isValueBaseInEseries(r1, subset)) {
+				continue
+			}
+
+			const r2Target = (r1 * targetVout) / (vin - targetVout);
+			let index = binarySearch(cache.resistorValues, r2Target, lo, hi);
+
+			let scanned = 0, yielded = 0, left = index - 1;
+			while (yielded < 5 && scanned < 256 && left >= lo) {
+				const r2 = cache.resistorValues[left];
+				const outputImpedance = (r1 * r2) / (r1 + r2);
+				if (outputImpedance > maxOutputImpedance) {
+					left--; scanned++;
+					continue;
+				}
+				
+				if (!noFilter && !isValueBaseInEseries(r2, subset)) {
+					left--; scanned++;
+					continue;
+				}
+
+				const impedance = r1 + r2;
+				if (impedance > maxImpedance) {
+					left--; scanned++;
+					continue;
+				}
+				// impedance will only keep decreasing
+				if (impedance < minImpedance) {
+					break;
+				}
+
+				const vout = vin * r2 / (r1 + r2);
+				const percentDiff = MathUtil.percentageDifference(targetVout, vout);
+
+				if (heap.size < 20 || heap.peek()!.percentDiff > percentDiff) {
+					heap.push({
+						top: {
+							type: 'single',
+							v1: r1,
+						},
+						bottom: {
+							type: 'single',
+							v1: r2
+						},
+						outputImpedance,
+						totalImpedance: impedance,
+						current: vin / (r1 + r2),
+						vin,
+						vout,
+						percentDiff
+					});
+
+					yielded++;
+				}
+
+				left--; scanned++;
+			}
+
+			let right = index;
+			scanned = 0, yielded = 0;
+			while (yielded < 5 && scanned < 256 && right <= hi) {
+				const r2 = cache.resistorValues[right];
+				const outputImpedance = (r1 * r2) / (r1 + r2);
+				if (outputImpedance > maxOutputImpedance) {
+					break;
+				}
+
+				if (!noFilter && !isValueBaseInEseries(r2, subset)) {
+					right++; scanned++;
+					continue
+				}
+
+				const impedance = r1 + r2;
+				// impedance will only keep increasing
+				if (impedance > maxImpedance) {
+					break;
+				}
+				if (impedance < minImpedance) {
+					right++; scanned++;
+					continue;
+				}
+
+				const vout = vin * r2 / (r1 + r2);
+				const percentDiff = MathUtil.percentageDifference(targetVout, vout);
+
+				if (heap.size < 20 || heap.peek()!.percentDiff > percentDiff) {
+					heap.push({
+						top: {
+							type: 'single',
+							v1: r1,
+						},
+						bottom: {
+							type: 'single',
+							v1: r2
+						},
+						outputImpedance,
+						totalImpedance: impedance,
+						current: vin / (r1 + r2),
+						vin,
+						vout,
+						percentDiff
+					});
+
+					yielded++;
+				}
+
+				right++; scanned++;
+			}
+		}
+	}
+
+	if (e24Subset) run(e24Cache, e24Subset);
+	if (e96Subset) run(e96Cache, e96Subset);
+	if (useE192) run(e192Cache, 192);
+
+	return (heap.consume() as Array<VoltageDividerCombination>)
+		.sort((a, b) => a.percentDiff - b.percentDiff);
+}
 
 const api = {
 	init(e24Cache: Cache, e96Cache: Cache, e192Cache: Cache) {
@@ -440,12 +618,27 @@ const api = {
 			default: throw Error("invalid n")
 		}
 		console.log("solve body:", (performance.now() - t).toFixed(2), "ms");
-		console.log("Finished computation")
 		return results;
 	},
 
-	solveVoltageDivider() {
+	solveVoltageDivider(req: VoltageDividerComputeRequest) {
+		let results: VoltageDividerCombination[];
+		const t = performance.now();
 
+		let minImpedance, maxImpedance;
+		if (req.constraint.type === 'impedance') {
+			minImpedance = req.constraint.min, maxImpedance = req.constraint.max;
+		} else {
+			minImpedance = req.vin / req.constraint.max;
+			maxImpedance = req.vin / req.constraint.min;
+		}
+
+		switch (req.n) {
+			case 2: results = solveVoltageDividerN2(req.vin, req.vout, req.maxOutputImpedance, minImpedance, maxImpedance, req.e24Subset, req.e96Subset, req.useE192); break;
+			default: throw Error("invalid n")
+		}
+		console.log("solve body:", (performance.now() - t).toFixed(2), "ms");
+		return results;
 	}
 }
 

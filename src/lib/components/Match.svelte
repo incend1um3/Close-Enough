@@ -2,7 +2,7 @@
 	import { MathUtil } from '$lib/math';
 	import MaterialSymbolsKidStar from '~icons/material-symbols/kid-star';
 	import { formatSiValue } from '$lib/format-si';
-	import type { Combination } from '$lib/calculator/workers/solver';
+	import type { Combination, VoltageDividerCombination } from '$lib/calculator/workers/solver';
 	import SeriesResistor from './circuit-display/SeriesResistor.svelte';
 	import ParallelResistor from './circuit-display/ParallelResistor.svelte';
 	import SingleResistor from './circuit-display/SingleResistor.svelte';
@@ -10,29 +10,26 @@
 	import Series3 from './circuit-display/Series3.svelte';
 	import SeriesTwoParallelOne from './circuit-display/SeriesTwoParallelOne.svelte';
 	import Parallel2Series1 from './circuit-display/Parallel2Series1.svelte';
+	import { getNumComponentsFromCombination, isCombinationVoltageDivider } from '$lib/util';
+	import VoltageDivider from './circuit-display/VoltageDivider.svelte';
 
 	const { 
 		targetValue,
 		selectedCombination
 	}: {
 		targetValue: number,
-		selectedCombination: Combination ,
+		selectedCombination: Combination | VoltageDividerCombination,
 	} = $props();
 
-	let percentageDifference = $derived(MathUtil.percentageDifference(targetValue, selectedCombination.result));
-	let numComponents = $derived.by(() => {
-		switch (selectedCombination.type) {
-			case 'single': return 1;
-			case 'series':
-			case 'parallel': return 2;
-			default: return 3;
-		}
-	})
+	let result = $derived(isCombinationVoltageDivider(selectedCombination) ? selectedCombination.vout : selectedCombination.result);
+
+	let percentageDifference = $derived(MathUtil.percentageDifference(targetValue, result));
+	let numComponents = $derived(getNumComponentsFromCombination(selectedCombination));
 </script>
 
 <div class="flex flex-col border p-6 flex-1 border-y-gray-300 border-gray-300 shadow-sm bg-amber-50">
 	<div class="flex justify-between items-center mb-1">
-		<p class="text-4xl tracking-wide">{formatSiValue(selectedCombination.result)}</p>
+		<p class="text-4xl tracking-wide">{formatSiValue(result, false, isCombinationVoltageDivider(selectedCombination) ? 'V' : 'Ω')}</p>
 		<div class={`rounded-lg py-1 px-2 flex gap-2 items-center ${percentageDifference <= 1.0 ? 'bg-green-300/70' : percentageDifference <= 10.0 ? 'bg-yellow-300' : 'bg-red-400'}`}>
 			{#if percentageDifference <= 0.01}
 				EXACT
@@ -46,20 +43,24 @@
 		<p class="opacity-60 whitespace-pre text-sm mb-3">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}</p>
 	</div>
 	<div class="m-auto zoom-80">
-		{#if selectedCombination.type === 'single'}
-			<SingleResistor r1={selectedCombination.result} />
-		{:else if selectedCombination.type === 'series'}
-			<SeriesResistor r1={selectedCombination.v1} r2={selectedCombination.v2}/>
-		{:else if selectedCombination.type === 'parallel'}
-			<ParallelResistor r1={selectedCombination.v1} r2={selectedCombination.v2}/>
-		{:else if selectedCombination.type === "r+r+r"}
-			<Series3 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
-		{:else if selectedCombination.type === "r||r||r"}
-			<Parallel3 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
-		{:else if selectedCombination.type === "(r+r)||r"}
-			<SeriesTwoParallelOne r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
-		{:else if selectedCombination.type === "(r||r)+r"}
-			<Parallel2Series1 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+		{#if !isCombinationVoltageDivider(selectedCombination)}
+			{#if selectedCombination.type === 'single'}
+				<SingleResistor r1={selectedCombination.result} />
+			{:else if selectedCombination.type === 'series'}
+				<SeriesResistor r1={selectedCombination.v1} r2={selectedCombination.v2}/>
+			{:else if selectedCombination.type === 'parallel'}
+				<ParallelResistor r1={selectedCombination.v1} r2={selectedCombination.v2}/>
+			{:else if selectedCombination.type === "r+r+r"}
+				<Series3 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+			{:else if selectedCombination.type === "r||r||r"}
+				<Parallel3 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+			{:else if selectedCombination.type === "(r+r)||r"}
+				<SeriesTwoParallelOne r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+			{:else if selectedCombination.type === "(r||r)+r"}
+				<Parallel2Series1 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
+			{/if}
+		{:else}
+			<VoltageDivider vin={selectedCombination.vin} vout={selectedCombination.vout} r1={selectedCombination.top.v1} r2={selectedCombination.bottom.v1}/>
 		{/if}
 	</div>
 </div>
