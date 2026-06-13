@@ -13,10 +13,10 @@
 	} = $props()
 
 	const R1: Part = { x: 120, y: 80, orientation: 'horizontal', length: 200 };
-	const R2: Part = { x: 300, y: 80, orientation: 'horizontal', length: 200 };
+	const R2: Part = { x: 280, y: 80, orientation: 'horizontal', length: 200 };
 </script>
 
-<svg viewBox="0 0 420 140" width="420" height="140" style="color:#1a1a1a;" class="bg-bg-200">
+<svg viewBox="0 0 400 140" style="color:#1a1a1a;" class="bg-bg-200 w-full h-auto">
 	<Resistor {...R1} name="R1" value={formatSiValue(r1).replace(' ', '')} />
 	<Resistor {...R2} name="R2" value={formatSiValue(r2).replace(' ', '')} />
 

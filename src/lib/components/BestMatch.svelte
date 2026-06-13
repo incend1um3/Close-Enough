@@ -29,9 +29,9 @@
 	let numComponents = $derived(getNumComponentsFromCombination(selectedCombination));
 </script>
 
-<div class="flex flex-col border border-l-3 rounded-l-lg border-amber-600 p-8 flex-1 border-y-gray-300 border-r-gray-300 shadow-sm bg-amber-50">
+<div class="flex flex-col border border-l-3 rounded-l-lg border-amber-600 p-4 sm:p-8 flex-1 border-y-gray-300 border-r-gray-300 shadow-sm bg-amber-50">
 	<div class="flex justify-between items-center mb-4">
-		<div class="text-amber-600 text-xl">BEST MATCH</div>
+		<div class="text-amber-600 text-lg sm:text-xl">BEST MATCH</div>
 		<div class={`rounded-lg py-1 px-2 flex gap-2 items-center text-lg ${percentageDifference <= 1.0 ? 'bg-green-300/70' : percentageDifference <= 10.0 ? 'bg-yellow-300' : 'bg-red-400'}`}>
 			{#if percentageDifference <= 0.01}
 				EXACT
@@ -42,11 +42,19 @@
 		</div>
 	</div>
 	<p class="text-6xl tracking-wide">{formatSiValue(result, false, isCombinationVoltageDivider(selectedCombination) ? 'V' : 'Ω')}</p>
-	<div>
-		<p class="opacity-60 whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}  •  Solved in {parseFloat(solveTime.toFixed(2))}ms</p>
-	</div>
-	<div class="mx-auto mt-4">
-		{#if !isCombinationVoltageDivider(selectedCombination)}
+	<p class="opacity-70 whitespace-pre-wrap">
+		<!-- For some reason, the second space after the dot gets trimmed -->
+		<span class="whitespace-pre">E-{selectedCombination.eSeries}  •&nbsp;   </span>
+		<span class="whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}  •&nbsp; </span>
+	    {#if isCombinationVoltageDivider(selectedCombination)}
+	        <span class="whitespace-pre">{formatSiValue(selectedCombination.outputImpedance, false)} Output Impedance  •&nbsp; </span>
+	        <span class="whitespace-pre">{formatSiValue(selectedCombination.totalImpedance, false)} Total Impedance  •&nbsp; </span>
+	        <span class="whitespace-pre">{formatSiValue(selectedCombination.current, false, 'A')} Bleed Current  •&nbsp; </span>
+		{/if}
+	    <span>Solved in {parseFloat(solveTime.toFixed(2))}ms</span>
+	</p>
+	{#if !isCombinationVoltageDivider(selectedCombination)}
+		<div class="w-full max-w-125 mx-auto mt-4">
 			{#if selectedCombination.type === 'single'}
 				<SingleResistor r1={selectedCombination.result} />
 			{:else if selectedCombination.type === 'series'}
@@ -62,8 +70,10 @@
 			{:else if selectedCombination.type === "(r||r)+r"}
 				<Parallel2Series1 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
 			{/if}
-		{:else}
+		</div>
+	{:else}
+		<div class="w-full max-w-80 mx-auto mt-4">
 			<VoltageDivider vin={selectedCombination.vin} vout={selectedCombination.vout} r1={selectedCombination.top.v1} r2={selectedCombination.bottom.v1}/>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>

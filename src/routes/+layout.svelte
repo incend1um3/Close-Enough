@@ -41,4 +41,12 @@
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
-{@render children()}
+<main class="p-2 sm:p-11">
+	{@render children()}
+</main>
+<footer class="bg-amber-950 text-slate-200 flex gap-8 justify-center p-4 mt-auto">
+	<p>Made with ❤️ by incend1um</p>
+	<div class="flex">
+
+	</div>
+</footer>

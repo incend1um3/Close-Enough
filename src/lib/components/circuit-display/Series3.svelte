@@ -14,12 +14,12 @@
 		r3: number,
 	} = $props()
 
-	const R1: Part = { x: 120, y: 80, orientation: 'horizontal', length: 200 };
-	const R2: Part = { x: 280, y: 80, orientation: 'horizontal', length: 200 };
-	const R3: Part = { x: 440, y: 80, orientation: 'horizontal', length: 200 };
+	const R1: Part = { x: 110, y: 80, orientation: 'horizontal', length: 200 };
+	const R2: Part = { x: 250, y: 80, orientation: 'horizontal', length: 200 };
+	const R3: Part = { x: 390, y: 80, orientation: 'horizontal', length: 200 };
 </script>
 
-<svg viewBox="0 0 560 140" width="560" height="140" style="color:#1a1a1a;" class="bg-bg-200">
+<svg viewBox="0 0 510 140" style="color:#1a1a1a;" class="bg-bg-200 w-full h-auto">
 	<Resistor {...R1} name="R1" value={formatSiValue(r1).replace(' ', '')} />
 	<Resistor {...R2} name="R2" value={formatSiValue(r2).replace(' ', '')} />
 	<Resistor {...R3} name="R3" value={formatSiValue(r3).replace(' ', '')} />

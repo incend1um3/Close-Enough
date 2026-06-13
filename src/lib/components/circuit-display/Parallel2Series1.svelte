@@ -15,9 +15,9 @@
 		r3: number,
 	} = $props()
 	
-	const R1: Part = { x: 200,  y: 60,  orientation: 'horizontal', length: 200 };
-	const R2: Part = { x: 200,  y: 180, orientation: 'horizontal', length: 200 }; 
-	const R3: Part = { x: 400,  y: 120, orientation: 'horizontal', length: 200 }; 
+	const R1: Part = { x: 180,  y: 60,  orientation: 'horizontal', length: 200 };
+	const R2: Part = { x: 180,  y: 180, orientation: 'horizontal', length: 200 }; 
+	const R3: Part = { x: 380,  y: 120, orientation: 'horizontal', length: 200 }; 
 
 	const L1 = pins(R1).a;
 	const L2 = pins(R2).a;
@@ -28,7 +28,7 @@
 	const midR = node(B1.x, (B1.y + B2.y) / 2);
 </script>
 
-<svg viewBox="0 0 520 230" width="520" height="230" style="color:#1a1a1a;" class="bg-bg-200">
+<svg viewBox="0 0 500 230" style="color:#1a1a1a;" class="bg-bg-200 w-full h-auto">
   	<Resistor {...R1} name="R1" value={formatSiValue(r1).replace(' ', '')} />
   	<Resistor {...R2} name="R2" value={formatSiValue(r2).replace(' ', '')} />
   	<Resistor {...R3} name="R3" value={formatSiValue(r3).replace(' ', '')} />

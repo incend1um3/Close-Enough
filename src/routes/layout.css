@@ -14,7 +14,7 @@
 	}
 
 	body {
-		@apply p-12;
+		@apply min-h-dvh flex flex-col;
 		background-color: color-mix(in srgb, theme(colors.amber.50) 97%, black);
 	}
 
@@ -22,7 +22,11 @@
 		@apply cursor-pointer;
 	}
 
-	input {
+	input, textarea {
 		@apply min-w-0 w-full;
+	}
+
+	textarea {
+		@apply resize-none;
 	}
 }

@@ -14,6 +14,7 @@ export type Combination =
 		type: 'single';
 		result: number;
 		percentDiff: number,
+		eSeries: ESeries,
 	}
 	| {
 		type: 'series' | 'parallel';
@@ -21,6 +22,7 @@ export type Combination =
 		v2: number;
 		result: number,
 		percentDiff: number,
+		eSeries: ESeries,
 	}
 	| {
 		type: 'r+r+r' | 'r||r||r' | '(r+r)||r' | '(r||r)+r';
@@ -29,6 +31,7 @@ export type Combination =
 		v3: number;
 		result: number,
 		percentDiff: number,
+		eSeries: ESeries,
 	};
 
 const E24SubsetSchema = z.union([z.literal(6), z.literal(12), z.literal(24)]);
@@ -91,6 +94,7 @@ export type VoltageDividerCombination = {
 	vin: number,
 	vout: number,
 	percentDiff: number,
+	eSeries: ESeries,
 }
 
 type Peekable<T> = FixedReverseHeap<T> & { peek(): T | undefined };
@@ -104,17 +108,22 @@ function decadeBounds(cache: Cache, minDecade: number, maxDecade: number) {
 }
 
 // #region resistor
-export function findClosestResistorValuesN1(ohms: number, e24Subset: E24Subset | null, e96Subset: E96Subset | null, useE192: boolean) {
-	let heap = new FixedReverseHeap<{ type: 'single', result: number, percentDiff: number }>(
+export function findClosestResistorValuesN1(
+	ohms: number, 
+	e24Subset: E24Subset | null, 
+	e96Subset: E96Subset | null, 
+	useE192: boolean
+) {
+	let heap = new FixedReverseHeap<Combination>(
 		Array,
 		(a, b) => a.percentDiff - b.percentDiff,
 		20
 	);
 	
-	function run(eseries: ESeries) {
-		for (let r of iterResistorValuesFromCache(eseries)) {
+	function run(eSeries: ESeries) {
+		for (let r of iterResistorValuesFromCache(eSeries)) {
 			let percentDiff = MathUtil.percentageDifference(ohms, r);
-			heap.push({ type: 'single', result: r, percentDiff });
+			heap.push({ type: 'single', result: r, percentDiff, eSeries });
 		}
 	}
 
@@ -122,7 +131,7 @@ export function findClosestResistorValuesN1(ohms: number, e24Subset: E24Subset |
 	if (e96Subset) run(e96Subset);
 	if (useE192) run(192);
 
-	return (heap.consume() as Array<{ type: 'single', result: number; percentDiff: number }>)
+	return (heap.consume() as Array<Combination>)
 		.sort((a, b) => a.percentDiff - b.percentDiff);
 }
 
@@ -262,7 +271,8 @@ export function findClosestResistorValuesN2(ohms: number, e24Subset: E24Subset |
 				v1: cache.r1s[cache.sortedSeriesIndices[e.index]],
 				v2: cache.r2s[cache.sortedSeriesIndices[e.index]],
 				result: e.value,
-				percentDiff: e.diff
+				percentDiff: e.diff,
+				eSeries,
 			});
 		}
 		for (const e of closestCombinations(cache, 'parallel', eSeries, ohms)) {
@@ -271,7 +281,8 @@ export function findClosestResistorValuesN2(ohms: number, e24Subset: E24Subset |
 				v1: cache.r1s[cache.sortedParallelIndices[e.index]],
 				v2: cache.r2s[cache.sortedParallelIndices[e.index]],
 				result: e.value,
-				percentDiff: e.diff
+				percentDiff: e.diff,
+				eSeries,
 			});
 		}
 	}
@@ -376,7 +387,8 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 							v2: cache.r2s[sortedIndex],
 							v3: r3,
 							percentDiff,
-							result: combinationResult
+							result: combinationResult,
+							eSeries,
 						})
 					}
 				}
@@ -397,7 +409,8 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 							v2: cache.r2s[sortedIndex],
 							v3: r3,
 							percentDiff,
-							result: combinationResult
+							result: combinationResult,
+							eSeries,
 						});
 					}
 				}
@@ -418,7 +431,8 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 							v2: cache.r2s[sortedIndex],
 							v3: r3,
 							percentDiff,
-							result: combinationResult
+							result: combinationResult,
+							eSeries,
 						});
 					}
 				}
@@ -439,7 +453,8 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 							v2: cache.r2s[sortedIndex],
 							v3: r3,
 							percentDiff,
-							result: combinationResult
+							result: combinationResult,
+							eSeries,
 						});
 					}
 				}
@@ -486,13 +501,13 @@ function solveVoltageDividerN2(
 		20
 	) as any as Peekable<VoltageDividerCombination>;
 
-	function run(cache: Cache, subset: ESeries) {
-		const noFilter = subset === 24 || subset === 96 || subset === 192;
+	function run(cache: Cache, eSeries: ESeries) {
+		const noFilter = eSeries === 24 || eSeries === 96 || eSeries === 192;
 		let [lo, hi] = decadeBounds(cache, -3, 7);
 
 		for (let i = lo; i <= hi; i++) {
 			const r1 = cache.resistorValues[i];
-			if (!noFilter && !isValueBaseInEseries(r1, subset)) {
+			if (!noFilter && !isValueBaseInEseries(r1, eSeries)) {
 				continue
 			}
 
@@ -508,7 +523,7 @@ function solveVoltageDividerN2(
 					continue;
 				}
 				
-				if (!noFilter && !isValueBaseInEseries(r2, subset)) {
+				if (!noFilter && !isValueBaseInEseries(r2, eSeries)) {
 					left--; scanned++;
 					continue;
 				}
@@ -541,7 +556,8 @@ function solveVoltageDividerN2(
 						current: vin / (r1 + r2),
 						vin,
 						vout,
-						percentDiff
+						percentDiff,
+						eSeries,
 					});
 
 					yielded++;
@@ -559,7 +575,7 @@ function solveVoltageDividerN2(
 					break;
 				}
 
-				if (!noFilter && !isValueBaseInEseries(r2, subset)) {
+				if (!noFilter && !isValueBaseInEseries(r2, eSeries)) {
 					right++; scanned++;
 					continue
 				}
@@ -592,7 +608,8 @@ function solveVoltageDividerN2(
 						current: vin / (r1 + r2),
 						vin,
 						vout,
-						percentDiff
+						percentDiff,
+						eSeries,
 					});
 
 					yielded++;

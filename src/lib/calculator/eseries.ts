@@ -5,8 +5,8 @@ export type CachedESeries = 24 | 96 | 192;
 
 export const ESERIES_LIST: ESeries[] = [6, 12, 24, 48, 96, 192];
 
-export const E24_SUBSETs: ESeries[] = [6, 12, 24];
-export const E96_SUBSETS: ESeries[] = [48, 96];
+export const E24_SUBSETs: E24Subset[] = [6, 12, 24];
+export const E96_SUBSETS: E96Subset[] = [48, 96];
 
 // Official base values for each E-series (1.0 to 9.xx)
 // Use stored values because the standard deviates from pure mathematical rounding

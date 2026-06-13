@@ -4,6 +4,7 @@
 	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
 	import { get } from "svelte/store";
 	import Result, { err, ok } from "true-myth/result";
+	import ESeriesSelector from "./ESeriesSelector.svelte";
 
 	let { 
 		v1 = $bindable(), 
@@ -46,7 +47,7 @@
 	    }
 	}
 
-	let inputs = $state({ 1: "", 2: "" });
+	let inputs = $state({ 1: String(v1 ?? ""), 2: String(v2 ?? "") });
 
 	let input1Scaled = $derived(parseValue(inputs[1]));
 	let input2Scaled = $derived(parseValue(inputs[2]));
@@ -83,7 +84,7 @@
 	</div>
 {/snippet}
 
-<div class="p-8 border border-gray-300 shadow-sm w-fit bg-amber-50 self-start {rest.class}">
+<div class="p-8 border border-gray-300 shadow-sm w-fit bg-amber-50 self-start min-w-[340px] {rest.class}">
 	<div class="flex gap-8">
 		{@render inputBox(v1Label, 1)}
 		{#if v2Label}
@@ -97,7 +98,7 @@
 	{/if}
 	<p class="mb-6 opacity-50">Type with prefix: 3.3k, 4k7, 100n, 22µF</p>
 
-	<p>MAX NUMBEF OF COMPONENTS</p>
+	<p>MAX NUMBER OF COMPONENTS</p>
 	<div class="flex gap-4">
 		{#each [1, 2, 3] as i}
 			<button
@@ -113,32 +114,9 @@
 	<p class="opacity-50 mb-6">Higher value = more search time</p>
 
 	<p>E-SERIES</p>
-	<div class="flex gap-4 mb-6">
-		{#each ESERIES_LIST as value}
-			<button
-				data-selected={selectedE24Subset === value || selectedE96Subset === value || (value === 192 && e192Selected)}
-				class="border border-gray-300 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-500 
-				w-13 h-10 font-semibold flex items-center justify-center rounded-sm"
-				onclick={() => {
-					if (value <= 24) {
-						selectedE24Subset = selectedE24Subset === value ? null : value as E24Subset;
-					} else if (value <= 96) {
-						selectedE96Subset = selectedE96Subset === value ? null : value as E96Subset;
-					} else {
-						e192Selected = !e192Selected;
-					}
-				}}
-			>
-				E{value}
-			</button>
+	<ESeriesSelector bind:e24Subset={selectedE24Subset} bind:e96Subset={selectedE96Subset} bind:useE192={e192Selected}/>
 
-			{#if value === 24 || value === 96}
-				<span class="rounded-lg border border-gray-200 mx-2"></span>
-			{/if}
-		{/each}
-	</div>
-
-	<p>CUSTOM VALUES</p>
+	<p class="mt-4">CUSTOM VALUES</p>
 	<textarea class="mb-6"></textarea>
 
 	<div class="w-full flex justify-between opacity-50">

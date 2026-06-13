@@ -27,7 +27,7 @@
 	let numComponents = $derived(getNumComponentsFromCombination(selectedCombination));
 </script>
 
-<div class="flex flex-col border p-6 flex-1 border-y-gray-300 border-gray-300 shadow-sm bg-amber-50">
+<div class="flex flex-col border p-5 sm:p-6 flex-1 border-y-gray-300 border-gray-300 shadow-sm bg-amber-50">
 	<div class="flex justify-between items-center mb-1">
 		<p class="text-4xl tracking-wide">{formatSiValue(result, false, isCombinationVoltageDivider(selectedCombination) ? 'V' : 'Ω')}</p>
 		<div class={`rounded-lg py-1 px-2 flex gap-2 items-center ${percentageDifference <= 1.0 ? 'bg-green-300/70' : percentageDifference <= 10.0 ? 'bg-yellow-300' : 'bg-red-400'}`}>
@@ -39,11 +39,19 @@
 			{/if}
 		</div>
 	</div>
-	<div>
-		<p class="opacity-60 whitespace-pre text-sm mb-3">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}</p>
-	</div>
-	<div class="mx-auto zoom-80">
-		{#if !isCombinationVoltageDivider(selectedCombination)}
+	<p class="opacity-70 whitespace-pre-wrap">
+		<span class="whitespace-pre">E-{selectedCombination.eSeries}  •&nbsp; </span>
+	    {#if !isCombinationVoltageDivider(selectedCombination)}
+			<span class="whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}</span>
+		{:else}
+			<span class="whitespace-pre">{numComponents} COMPONENT{numComponents > 1 ? 'S' : ''}  •&nbsp; </span>
+	        <span class="whitespace-pre">{formatSiValue(selectedCombination.outputImpedance, false)} Output Impedance  •&nbsp; </span>
+	        <span class="whitespace-pre">{formatSiValue(selectedCombination.totalImpedance, false)} Total Impedance  •&nbsp; </span>
+	        <span class="whitespace-pre">{formatSiValue(selectedCombination.current, false, 'A')} Bleed Current  •&nbsp; </span>
+		{/if}
+	</p>
+	{#if !isCombinationVoltageDivider(selectedCombination)}
+		<div class="w-full max-w-[400px] mx-auto mt-3">
 			{#if selectedCombination.type === 'single'}
 				<SingleResistor r1={selectedCombination.result} />
 			{:else if selectedCombination.type === 'series'}
@@ -59,8 +67,10 @@
 			{:else if selectedCombination.type === "(r||r)+r"}
 				<Parallel2Series1 r1={selectedCombination.v1} r2={selectedCombination.v2} r3={selectedCombination.v3}/>
 			{/if}
-		{:else}
+		</div>
+	{:else}
+		<div class="w-full max-w-[300px] mx-auto mt-3">
 			<VoltageDivider vin={selectedCombination.vin} vout={selectedCombination.vout} r1={selectedCombination.top.v1} r2={selectedCombination.bottom.v1}/>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>

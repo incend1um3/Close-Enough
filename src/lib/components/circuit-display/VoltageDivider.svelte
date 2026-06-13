@@ -25,7 +25,7 @@
 	const mid = node(R1.x!, (pins(R1).b.y + pins(R2).a.y) / 2)
 </script>
 
-<svg viewBox="0 0 300 500" width="300" height="500" style="color:#1a1a1a;" class="bg-bg-200">
+<svg viewBox="0 0 300 500" style="color:#1a1a1a;" class="bg-bg-200 w-full h-auto">
 	<Pwr at={pins(R1).a} name={formatSiValue(vin, true, 'V')}/>
 
 	<Resistor {...R1} name="R1" value={formatSiValue(r1)} />

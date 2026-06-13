@@ -31,7 +31,7 @@
 	const midR = node(B1.x, (B1.y + B3.y) / 2);
 </script>
 
-<svg viewBox="0 0 380 320" width="380" height="320" style="color:#1a1a1a;" class="bg-bg-200">
+<svg viewBox="0 0 380 320" style="color:#1a1a1a;" class="bg-bg-200 w-full h-auto">
   	<Resistor {...R1} name="R1" value={formatSiValue(r1).replace(' ', '')} />
   	<Resistor {...R2} name="R2" value={formatSiValue(r2).replace(' ', '')} />
   	<Resistor {...R3} name="R3" value={formatSiValue(r3).replace(' ', '')} />

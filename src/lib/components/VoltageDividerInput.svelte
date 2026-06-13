@@ -1,15 +1,19 @@
 <script lang="ts">
-	import { ESERIES_LIST, type E24Subset, type E96Subset, type ESeries } from "$lib/calculator/eseries";
 	import type { VoltageDividerComputeRequest } from "$lib/calculator/workers/solver";
 	import { parseValue } from "$lib/parse-value";
 	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
 	import { get } from "svelte/store";
+	import ESeriesSelector from "./ESeriesSelector.svelte";
+	import { ok } from "true-myth/result";
+	import InfoTooltip from "./InfoTooltip.svelte";
 
 	let {
 		computeReq: req = $bindable(),
+		error = $bindable(),
 		...rest
 	}: { 
-		computeReq: VoltageDividerComputeRequest
+		computeReq: VoltageDividerComputeRequest,
+		error: boolean,
 		class?: string,
 	} = $props();
 
@@ -35,36 +39,48 @@
 	});
 
 	let constraintType: 'impedance' | 'current' = $state('current');
-	let vInParsed = $derived(parseValue(inputs[Input.Vin]));
-	let vOutParsed = $derived(parseValue(inputs[Input.Vout]));
-	let maxOutputImpedanceParsed = $derived(parseValue(inputs[Input.MaxOutputImpedance]));
-	let minImpedanceParsed = $derived(parseValue(inputs[Input.MinImpedance]));
-	let maxImpedanceParsed = $derived(parseValue(inputs[Input.MaxImpedance]));
-	let minCurrentParsed = $derived(parseValue(inputs[Input.MinCurrent]));
-	let maxCurrentParsed = $derived(parseValue(inputs[Input.MaxCurrent]));
+	let vInParsed = $derived(parseValue(inputs[Input.Vin]).map(v => v.value));
+	let vOutParsed = $derived(parseValue(inputs[Input.Vout]).map(v => v.value));
+	let maxOutputImpedanceParsed = $derived(parseValue(inputs[Input.MaxOutputImpedance]).map(v => v.value));
+	let minImpedanceParsed = $derived(parseValue(inputs[Input.MinImpedance]).map(v => v.value));
+	let maxImpedanceParsed = $derived(!inputs[Input.MaxImpedance].trim() ? ok(Infinity) : parseValue(inputs[Input.MaxImpedance]).map(v => v.value));
+	let minCurrentParsed = $derived(!inputs[Input.MinCurrent].trim() ? ok(0) : parseValue(inputs[Input.MinCurrent]).map(v => v.value));
+	let maxCurrentParsed = $derived(parseValue(inputs[Input.MaxCurrent]).map(v => v.value));
+
+	let voutGreaterThanVin = $derived(
+		vInParsed.isOk && vOutParsed.isOk && vOutParsed.value >= vInParsed.value
+	);
 
 	$effect(() => {
-		if (vInParsed.isOk) {
-			req.vin = vInParsed.value.value;
-		}
-		if (vOutParsed.isOk) {
-			req.vout = vOutParsed.value.value;
+		error = !(
+			vInParsed.isOk && vOutParsed.isOk && !voutGreaterThanVin &&
+			maxOutputImpedanceParsed.isOk &&
+			(constraintType === 'impedance' 
+				? (minImpedanceParsed.isOk && maxImpedanceParsed.isOk) 
+				: (minCurrentParsed.isOk && maxCurrentParsed.isOk))
+		);
+	})
+
+	$effect(() => {
+		if (vInParsed.isOk && vOutParsed.isOk && !voutGreaterThanVin) {
+			req.vin = vInParsed.value;
+			req.vout = vOutParsed.value;
 		}
 		if (maxOutputImpedanceParsed.isOk) {
-			req.maxOutputImpedance = maxOutputImpedanceParsed.value.value;
+			req.maxOutputImpedance = maxOutputImpedanceParsed.value;
 		}
 		if (minImpedanceParsed.isOk && maxImpedanceParsed.isOk && constraintType === 'impedance') {
 			req.constraint = {
 				type: 'impedance',
-				min: minImpedanceParsed.value.value,
-				max: maxImpedanceParsed.value.value
+				min: minImpedanceParsed.value,
+				max: maxImpedanceParsed.value
 			}
 		}
 		if (minCurrentParsed.isOk && maxCurrentParsed.isOk && constraintType === 'current') {
 			req.constraint = {
 				type: 'current',
-				min: minCurrentParsed.value.value,
-				max: maxCurrentParsed.value.value
+				min: minCurrentParsed.value,
+				max: maxCurrentParsed.value
 			}
 		}
 	});
@@ -97,7 +113,13 @@
 		{@render inputBox("Vin", Input.Vin, 'V')}
 		{@render inputBox("Vout", Input.Vout, 'V')}
 	</div>
-	<p hidden={vInParsed.isOk && vOutParsed.isOk} class="text-rose-500">Failed to parse</p>
+	<p class="text-rose-500">
+		{#if !vInParsed.isOk || !vOutParsed.isOk}
+			Failed to parse
+		{:else if voutGreaterThanVin}
+			Vin must be greater than Vout
+		{/if}
+	</p>
 	<p class="mb-6 opacity-50">Type with prefix: 3.3k, 4k7</p>
 
 	{@render inputBox("Max Output Impedance", Input.MaxOutputImpedance, 'Ω')}
@@ -122,6 +144,11 @@
 			{@render inputBox("Max Current", Input.MaxCurrent, 'A')}
 		{/if}
 	</div>
+	<p class="text-rose-500">
+		{#if (constraintType === "impedance" && !(minImpedanceParsed.isOk && minImpedanceParsed.isOk)) || (constraintType === "current" && !(minCurrentParsed.isOk && maxCurrentParsed.isOk))}
+			Failed to parse
+		{/if}
+	</p>
 
 	<p class="mt-4">MAX NUMBER OF COMPONENTS</p>
 	<div class="flex gap-4">
@@ -138,36 +165,21 @@
 	</div>
 	<p class="opacity-50 mb-6">Higher value = more search time</p>
 
-	<p>E-SERIES</p>
-	<div class="flex gap-4 mb-6">
-		{#each ESERIES_LIST as value}
-			<button
-				data-selected={req.e24Subset === value || req.e96Subset === value || (value === 192 && req.useE192)}
-				class="border border-gray-300 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-500 
-				w-13 h-10 font-semibold flex items-center justify-center rounded-sm"
-				onclick={() => {
-					if (value <= 24) {
-						req.e24Subset = req.e24Subset === value ? null : value as E24Subset;
-					} else if (value <= 96) {
-						req.e96Subset = req.e96Subset === value ? null : value as E96Subset;
-					} else {
-						req.useE192 = !req.useE192;
-					}
-				}}
-			>
-				E{value}
-			</button>
+	
+	<p>
+		E-SERIES 
+		<InfoTooltip>
+			<p class="mb-2">Each combination is generated from one E-series only.</p>
+			<p>For example, a combination may contain E24 + E24, but never something like E24 + E48</p>
+		</InfoTooltip>
+	</p>
+	<ESeriesSelector bind:e24Subset={req.e24Subset} bind:e96Subset={req.e96Subset} bind:useE192={req.useE192}/>
 
-			{#if value === 24 || value === 96}
-				<span class="rounded-lg border border-gray-200 mx-2"></span>
-			{/if}
-		{/each}
-	</div>
+	<p class="mt-4">CUSTOM VALUES</p>
+	<textarea class="bg-bg-200 border border-gray-300"></textarea>
+	<p class="opacity-50 text-right">0/10000</p>
 
-	<p>CUSTOM VALUES</p>
-	<textarea class="mb-6"></textarea>
-
-	<div class="w-full flex justify-between opacity-50">
+	<div class="w-full flex justify-between opacity-50 mt-6">
 		<p>Library size</p>
 		<p>{libSize} values</p>
 	</div>

@@ -14,6 +14,8 @@
 	import { Maybe } from "true-myth";
 	import { toMaybe } from "true-myth/toolbelt";
 	import { untrack } from "svelte";
+	import LineMdLoadingTwotoneLoop from '~icons/line-md/loading-twotone-loop'
+	import SolarSadSquareLinear from '~icons/solar/sad-square-linear'
 
 	let active: "resistor" | "voltage-divider" = $state("resistor");
 
@@ -47,6 +49,8 @@
 		})
 	)
 	
+	let error = $state(false);
+
 	let solveTime = $state(0);
 	let resultsPromise: Promise<Combination[]> | undefined = $state();
 	let voltageDividerResultsPromise: Promise<VoltageDividerCombination[]> | undefined = $state();
@@ -70,7 +74,7 @@
 		}
 
     	const t1 = performance.now();
-    	resultsPromise = worker!.solve(resistorComputeReq)
+    	resultsPromise = worker!.solve($state.snapshot(resistorComputeReq))
     	    .then(r => { 
 				solveTime = performance.now() - t1; 
 				console.log(`solve time: ${solveTime.toFixed(2)}ms`);
@@ -125,9 +129,9 @@
 </script>
 
 <div class="flex flex-col">
-	<div class="flex align-bottom items-end gap-8 mb-8">
+	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-8 flex-wrap">
 		<h1 class="text-5xl">Close Enough</h1>
-		<sub class="text-xl">Calculate the resistor/capacitor combination required to achieve your target value</sub>
+		<sub class="text-xl hidden sm:block">Calculate the resistor/capacitor combination required to achieve your target value</sub>
 	</div>
 
 	<Tab bind:active={active} tabs={[
@@ -138,8 +142,29 @@
 
 </div>
 
+{#snippet waitingForCacheLoadWidget()}
+	<div class="bg-amber-50 border border-gray-300 shadow-sm flex flex-col gap-4 justify-center items-center flex-3">
+		<p class="text-xl">Waiting for cache to load...</p>
+		<LineMdLoadingTwotoneLoop class="size-12"/>
+	</div>
+{/snippet}
+
+{#snippet solvingWidget()}
+	<div class="bg-amber-50 border border-gray-300 shadow-sm flex flex-col gap-4 justify-center items-center flex-3">
+		<p class="text-xl">Solving...</p>
+		<LineMdLoadingTwotoneLoop class="size-12"/>
+	</div>
+{/snippet}
+
+{#snippet errorWidget()}
+	<div class="bg-amber-50 border border-gray-300 shadow-sm flex flex-col gap-4 justify-center items-center flex-3">
+		<p class="text-xl text-shadow-red-500">Unable to Solve</p>
+		<SolarSadSquareLinear class="size-12"/>
+	</div>
+{/snippet}
+
 {#snippet resistor()}
-	<div class="flex gap-12">
+	<div class="flex gap-12 flex-wrap">
 		<ValueInput 
 			v1Label="TARGET RESISTANCE" 
 			bind:v1={resistorComputeReq.target} 
@@ -150,57 +175,61 @@
 			symbol="Ω"
 			class="flex-2"
 		/>
+		{#if !error}
 			{#await resultsPromise}
-				<div class="bg-amber-50 border border-gray-300 shadow-sm">
-					<p>Solving...</p>
-				</div>
+				{@render solvingWidget()}
 			{:then results}
 				{#if results}
-					<div class="flex flex-col gap-3 flex-3">
+					<div class="flex flex-col gap-3 flex-3 min-w-96">
 						<BestMatch selectedCombination={results[0]} targetValue={resistorComputeReq.target} solveTime={solveTime}/>
 						<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
-						<div class="grid grid-cols-2 gap-4">
+						<div 
+							class="grid grid-cols-[repeat(auto-fill,minmax(min(var(--col-min),100%),1fr))] gap-4"
+  							style="--col-min: {resistorComputeReq.n <= 2 ? '350px' : '400px'}"
+						>
 							{#each results.slice(1) as c}
 								<Match selectedCombination={c} targetValue={resistorComputeReq.target}/>
 							{/each}
 						</div>
 					</div>
 				{:else}
-					<div class="bg-amber-50 border border-gray-300 shadow-sm">
-						<p>Waiting for cache to load...</p>
-					</div>
+					{@render waitingForCacheLoadWidget()}
 				{/if}		
 			{/await}
+		{:else}
+			{@render errorWidget()}
+		{/if}
 	</div>
 {/snippet}
 
 {#snippet voltageDivider()}
-	<div class="flex gap-12">
+	<div class="flex gap-12 flex-wrap">
 		<VoltageDividerInput
 			bind:computeReq={voltageDividerComputeReq}
+			bind:error={error}
 			class="flex-2"
 		/>
-		{#await voltageDividerResultsPromise}
-			<div class="bg-amber-50 border border-gray-300 shadow-sm">
-				<p>Solving...</p>
-			</div>
-		{:then results}
-			{#if results}
-				<div class="flex flex-col gap-3 flex-3">
-					<BestMatch selectedCombination={results[0]} targetValue={voltageDividerComputeReq.vout} solveTime={solveTime}/>
-					<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
-					<div class="grid grid-cols-2 gap-4">
-						{#each results.slice(1) as c}
-							<Match selectedCombination={c} targetValue={voltageDividerComputeReq.vout}/>
-						{/each}
+		{#if !error}
+			{#await voltageDividerResultsPromise}
+				{@render solvingWidget()}
+			{:then results}
+				{#if results}
+					<div class="flex flex-col gap-3 flex-3">
+						<BestMatch selectedCombination={results[0]} targetValue={voltageDividerComputeReq.vout} solveTime={solveTime}/>
+						<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
+						<div class="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
+							{#each results.slice(1) as c}
+								<Match selectedCombination={c} targetValue={voltageDividerComputeReq.vout}/>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{:else}
-				<div class="bg-amber-50 border border-gray-300 shadow-sm flex-2">
-					<p>Waiting for cache to load...</p>
-				</div>
-			{/if}		
-		{/await}
+				{:else}
+					{@render waitingForCacheLoadWidget()}
+				{/if}		
+			{/await}
+		{:else}
+			{@render errorWidget()}
+		{/if}
 	</div>
 {/snippet}
 
