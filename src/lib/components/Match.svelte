@@ -12,6 +12,7 @@
 	import Parallel2Series1 from './circuit-display/Parallel2Series1.svelte';
 	import { getNumComponentsFromCombination, isCombinationVoltageDivider } from '$lib/util';
 	import VoltageDivider from './circuit-display/VoltageDivider.svelte';
+	import ThreeComponentVD from './circuit-display/ThreeComponentVD.svelte';
 
 	const { 
 		targetValue,
@@ -69,8 +70,12 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="w-full max-w-[300px] mx-auto mt-3">
-			<VoltageDivider vin={selectedCombination.vin} vout={selectedCombination.vout} r1={selectedCombination.top.v1} r2={selectedCombination.bottom.v1}/>
+		<div class="w-full max-w-[260px] mx-auto mt-3">
+			{#if selectedCombination.top.type === 'single' && selectedCombination.bottom.type === 'single'}
+				<VoltageDivider vin={selectedCombination.vin} vout={selectedCombination.vout} r1={selectedCombination.top.v1} r2={selectedCombination.bottom.v1}/>
+			{:else}
+				<ThreeComponentVD combination={selectedCombination}	/>
+			{/if}
 		</div>
 	{/if}
 </div>

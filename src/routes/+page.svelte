@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SolverWorker from "$lib/calculator/workers/solver?worker";
-	import { type SolverAPI, type Combination, type VoltageDividerCombination, type VoltageDividerComputeRequest, VoltageDividerComputeRequestSchema, parseVoltageDividerComputeRequest, type ComputeRequest, parseComputeRequest } from "$lib/calculator/workers/solver";
+	import { type SolverAPI, type Combination, type VoltageDividerCombination, type VoltageDividerComputeRequest, parseVoltageDividerComputeRequest, type ComputeRequest, parseComputeRequest } from "$lib/calculator/workers/solver";
 	import BestMatch from "$lib/components/BestMatch.svelte";
 	import Tab from "$lib/components/Tab.svelte";
 	import ValueInput from "$lib/components/ValueInput.svelte";
@@ -131,27 +131,19 @@
 <div class="flex flex-col">
 	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-8 flex-wrap">
 		<h1 class="text-5xl">Close Enough</h1>
-		<sub class="text-xl hidden sm:block">Calculate the resistor/capacitor combination required to achieve your target value</sub>
+		<sub class="text-xl hidden sm:block">Calculate the resistor combination required to achieve your target R/V value</sub>
 	</div>
 
 	<Tab bind:active={active} tabs={[
 		{ id: "resistor", title: "Resistor", subtitle: "Series & Parallel", content: resistor},
-		{ id: "voltage-divider", title: "Voltage Divider", subtitle: "Two Combinations", content: voltageDivider},
-		{ id: "rc-delay", title: "RC Constant", subtitle: "Resistor + Capacitor", content: rcDelay},
+		{ id: "voltage-divider", title: "Voltage Divider", subtitle: "S/P + Single", content: voltageDivider},
 	]}/>
 
 </div>
 
-{#snippet waitingForCacheLoadWidget()}
+{#snippet loadingWidget(text: string)}
 	<div class="bg-amber-50 border border-gray-300 shadow-sm flex flex-col gap-4 justify-center items-center flex-3">
-		<p class="text-xl">Waiting for cache to load...</p>
-		<LineMdLoadingTwotoneLoop class="size-12"/>
-	</div>
-{/snippet}
-
-{#snippet solvingWidget()}
-	<div class="bg-amber-50 border border-gray-300 shadow-sm flex flex-col gap-4 justify-center items-center flex-3">
-		<p class="text-xl">Solving...</p>
+		<p class="text-xl">{text}</p>
 		<LineMdLoadingTwotoneLoop class="size-12"/>
 	</div>
 {/snippet}
@@ -177,7 +169,7 @@
 		/>
 		{#if !error}
 			{#await resultsPromise}
-				{@render solvingWidget()}
+				{@render loadingWidget("Solving...")}
 			{:then results}
 				{#if results}
 					<div class="flex flex-col gap-3 flex-3 min-w-96">
@@ -193,7 +185,7 @@
 						</div>
 					</div>
 				{:else}
-					{@render waitingForCacheLoadWidget()}
+					{@render loadingWidget("Waiting for cache to load...")}
 				{/if}		
 			{/await}
 		{:else}
@@ -211,7 +203,7 @@
 		/>
 		{#if !error}
 			{#await voltageDividerResultsPromise}
-				{@render solvingWidget()}
+				{@render loadingWidget("Solving...")}
 			{:then results}
 				{#if results}
 					<div class="flex flex-col gap-3 flex-3">
@@ -224,14 +216,11 @@
 						</div>
 					</div>
 				{:else}
-					{@render waitingForCacheLoadWidget()}
+					{@render loadingWidget("Waiting for cache to load...")}
 				{/if}		
 			{/await}
 		{:else}
 			{@render errorWidget()}
 		{/if}
 	</div>
-{/snippet}
-
-{#snippet rcDelay()}
 {/snippet}
