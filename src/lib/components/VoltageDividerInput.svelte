@@ -70,18 +70,14 @@
 			req.maxOutputImpedance = maxOutputImpedanceParsed.value;
 		}
 		if (minImpedanceParsed.isOk && maxImpedanceParsed.isOk && constraintType === 'impedance') {
-			req.constraint = {
-				type: 'impedance',
-				min: minImpedanceParsed.value,
-				max: maxImpedanceParsed.value
-			}
+			req.constraint.type = 'impedance';
+			req.constraint.min = minImpedanceParsed.value;
+			req.constraint.max = maxImpedanceParsed.value;
 		}
 		if (minCurrentParsed.isOk && maxCurrentParsed.isOk && constraintType === 'current') {
-			req.constraint = {
-				type: 'current',
-				min: minCurrentParsed.value,
-				max: maxCurrentParsed.value
-			}
+			req.constraint.type = 'current';
+			req.constraint.min = minCurrentParsed.value,
+			req.constraint.max = maxCurrentParsed.value
 		}
 	});
 
@@ -101,7 +97,7 @@
 				bind:value={inputs[input]}
 				class="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-2xl tracking-wide"
 			>
-			<div class="p-3 border-l border-gray-300 aspect-square text-center items-center text-2xl font-bold">
+			<div class="p-2 border-l border-gray-300 aspect-square text-center items-center text-2xl font-bold">
 				{symbol}
 			</div>
 		</div>

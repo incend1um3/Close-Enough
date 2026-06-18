@@ -1,32 +1,27 @@
 <script lang="ts">
-	import type { Snippet } from "svelte";
+	import { page } from "$app/state";
 
 	type Tab = {
-		id: string,
+		href: string,
 		title: string,
 		subtitle?: string,
-		content: Snippet,
 	};
 
 	let { 
 		tabs = [], 
-		active = $bindable(tabs[0]?.id)
 	}: {
 		tabs: Tab[],
-		active?: string
 	} = $props();
-	
-	let activeTab = $derived(tabs.find(t => t.id === active))
 </script>
 
 <div>
 	<div role="tablist" class="flex gap-[5%] items-stretch w-full border-b-2 border-gray-200 mb-8">
-		{#each tabs as tab (tab.id)}
-			<button 
+		{#each tabs as tab (tab.href)}
+			<a 
+				href={tab.href}
 				role="tab"
-				aria-selected={tab.id === activeTab?.id}
-				class={"flex flex-col pb-2 cursor-pointer justify-center items-center translate-y-0.5" + (tab.id === activeTab?.id ? " border-b-3 border-amber-500" : "")}
-				onclick={() => active = tab.id}
+				aria-selected={page.url.pathname.includes(tab.href)}
+				class={"flex flex-col pb-2 cursor-pointer justify-center items-center translate-y-0.5" + (page.url.pathname.includes(tab.href) ? " border-b-3 border-amber-500" : "")}
 			>
 				{#if tab.subtitle}
 					<p class="text-lg sm:text-xl font-semibold">{tab.title}</p>
@@ -34,14 +29,7 @@
 				{:else}
 					{tab.title}
 				{/if}
-			</button>
+			</a>
 		{/each}
 	</div>
-
-	
-	{#if activeTab}
-		<div role="tabpanel">
-			{@render activeTab.content()}
-		</div>
-	{/if}
 </div>

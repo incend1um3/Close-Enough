@@ -30,23 +30,6 @@
 		class?: string,
 	} = $props();
 
-	function countSigFigs(s: string): number {
-	    const match = s.match(/^([0-9.]+)/);
-	    if (!match) return 0;
-	    const n = match[1];
-
-	    if (n.includes('.')) {
-	        // Decimal present: trailing zeros ARE significant
-	        // Strip leading zeros up to first non-zero digit
-	        const sig = n.replace(/^0*\.?0*/, '').replace('.', '');
-	        return sig.length || 1;
-	    } else {
-	        // No decimal: trailing zeros are ambiguous — strip them
-	        const sig = n.replace(/^0+/, '').replace(/0+$/, '');
-	        return sig.length || 1;
-	    }
-	}
-
 	let inputs = $state({ 1: String(v1 ?? ""), 2: String(v2 ?? "") });
 
 	let input1Scaled = $derived(parseValue(inputs[1]));
@@ -77,7 +60,7 @@
 				bind:value={inputs[input]}
 				class="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-2xl tracking-wide"
 			>
-			<div class="p-3 border-l border-gray-300 aspect-square text-center items-center text-2xl font-bold">
+			<div class="p-2 border-l border-gray-300 aspect-square text-center items-center text-2xl font-bold">
 				{symbol}
 			</div>
 		</div>
