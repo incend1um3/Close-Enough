@@ -7,7 +7,7 @@ export const ONE_MILLI = 1e-3;
 
 export type Peekable<T> = FixedReverseHeap<T> & { peek(): T | undefined };
 
-const START_DECADE = -12;
+const START_DECADE = -3;
 
 export function decadeBounds(cache: Cache, minDecade: number, maxDecade: number) {
 	const basesLen = cache.eSeries;

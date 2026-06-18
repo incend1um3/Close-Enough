@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { VoltageDividerComputeRequest } from "$lib/calculator/workers/solver";
-	import { parseValue } from "$lib/parse-value";
+	import { parseValue, type ParsedValue } from "$lib/parse-value";
 	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
 	import { get } from "svelte/store";
 	import ESeriesSelector from "./ESeriesSelector.svelte";
-	import { ok } from "true-myth/result";
+	import { err, ok } from "true-myth/result";
 	import InfoTooltip from "./InfoTooltip.svelte";
 
 	let {
@@ -38,14 +38,16 @@
 	    [Input.MaxCurrent]:   		req.constraint.type === "current"   ? String(req.constraint.max) : "",
 	});
 
+	const ensureNonNegative = (v: number) => v >= 0 ? ok(v) : err("Value cannot be negative!");
+	
 	let constraintType: 'impedance' | 'current' = $state(req.constraint.type);
-	let vInParsed = $derived(parseValue(inputs[Input.Vin]).map(v => v.value));
-	let vOutParsed = $derived(parseValue(inputs[Input.Vout]).map(v => v.value));
-	let maxOutputImpedanceParsed = $derived(parseValue(inputs[Input.MaxOutputImpedance]).map(v => v.value));
-	let minImpedanceParsed = $derived(parseValue(inputs[Input.MinImpedance]).map(v => v.value));
-	let maxImpedanceParsed = $derived(!inputs[Input.MaxImpedance].trim() ? ok(Infinity) : parseValue(inputs[Input.MaxImpedance]).map(v => v.value));
-	let minCurrentParsed = $derived(!inputs[Input.MinCurrent].trim() ? ok(0) : parseValue(inputs[Input.MinCurrent]).map(v => v.value));
-	let maxCurrentParsed = $derived(parseValue(inputs[Input.MaxCurrent]).map(v => v.value));
+	let vInParsed = $derived(parseValue(inputs[Input.Vin]).map(v => v.value).andThen(ensureNonNegative));
+	let vOutParsed = $derived(parseValue(inputs[Input.Vout]).map(v => v.value).andThen(ensureNonNegative));
+	let maxOutputImpedanceParsed = $derived(parseValue(inputs[Input.MaxOutputImpedance]).map(v => v.value).andThen(ensureNonNegative));
+	let minImpedanceParsed = $derived(parseValue(inputs[Input.MinImpedance]).map(v => v.value).andThen(ensureNonNegative));
+	let maxImpedanceParsed = $derived(!inputs[Input.MaxImpedance].trim() ? ok(Infinity) : parseValue(inputs[Input.MaxImpedance]).map(v => v.value).andThen(ensureNonNegative));
+	let minCurrentParsed = $derived(!inputs[Input.MinCurrent].trim() ? ok(0) : parseValue(inputs[Input.MinCurrent]).map(v => v.value).andThen(ensureNonNegative));
+	let maxCurrentParsed = $derived(parseValue(inputs[Input.MaxCurrent]).map(v => v.value).andThen(ensureNonNegative));
 
 	let voutGreaterThanVin = $derived(
 		vInParsed.isOk && vOutParsed.isOk && vOutParsed.value >= vInParsed.value

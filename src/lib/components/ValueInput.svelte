@@ -33,7 +33,7 @@
 
 	let inputs = $state({ 1: String(v1 ?? ""), 2: String(v2 ?? "") });
 
-	let input1Scaled = $derived(parseValue(inputs[1]));
+	let input1Scaled = $derived(parseValue(inputs[1]).andThen(v => v.value > 0 ? ok(v) : err("Value cannot be negative!")));
 	let input2Scaled = $derived(parseValue(inputs[2]));
 
 	$effect(() => {
