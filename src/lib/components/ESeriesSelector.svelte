@@ -30,6 +30,7 @@
 	<span class="rounded-lg border border-gray-200 mx-2"></span>
 	<button data-selected={useE192} onclick={() => useE192 = !useE192}>E192</button>
 </div>
+<p hidden={!!(e24Subset || e96Subset || useE192)} class="text-red-500">Please select a value</p>
 
 <style>
 	@reference "../../routes/layout.css";

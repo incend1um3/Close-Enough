@@ -3,7 +3,7 @@
 @plugin '@tailwindcss/typography';
 
 @theme {
-	--color-bg-100: --color-amber-50;
+	--color-bg-100: var(--color-amber-50);
 	--color-bg-200: color-mix(in srgb, var(--color-amber-50) 97%, black);
 }
 

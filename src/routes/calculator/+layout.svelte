@@ -119,7 +119,7 @@
 		untrack(() => {
 			if (activeId === 'resistor' && !context.resistance.resultsPromise) {
 				triggerSolve();
-			} else if (!context.voltageDivider.resultsPromise) {
+			} else if (activeId === 'voltage-divider' && !context.voltageDivider.resultsPromise) {
 				triggerSolveVoltageDivider();
 			}
 		});
@@ -128,9 +128,11 @@
 </script>
 
 <div class="flex flex-col">
-	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-8 flex-wrap">
-		<h1 class="text-5xl">Close Enough</h1>
-		<sub class="text-xl hidden sm:block">Calculate the resistor combination required to achieve your target R/V value</sub>
+	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-6 flex-wrap">
+		<div class="flex">
+			<p class="text-5xl hidden sm:block">Close Enough —&nbsp;</p>
+			<h1 class="text-5xl">{activeId === "resistor" ? "Resistor Combination Solver" : "Voltage Divider Solver"}</h1>
+		</div>
 	</div>
 
 	<Tab tabs={[

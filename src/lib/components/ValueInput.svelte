@@ -5,6 +5,7 @@
 	import { get } from "svelte/store";
 	import Result, { err, ok } from "true-myth/result";
 	import ESeriesSelector from "./ESeriesSelector.svelte";
+	import InfoTooltip from "./InfoTooltip.svelte";
 
 	let { 
 		v1 = $bindable(), 
@@ -79,7 +80,7 @@
 	{:else}
 		<p class="text-rose-500">Failed to parse</p>
 	{/if}
-	<p class="mb-6 opacity-50">Type with prefix: 3.3k, 4k7, 100n, 22µF</p>
+	<p class="mb-4 opacity-50">Type with prefix: 3.3k, 4k7, 100n, 22µF</p>
 
 	<p>MAX NUMBER OF COMPONENTS</p>
 	<div class="flex gap-4">
@@ -96,13 +97,20 @@
 	</div>
 	<p class="opacity-50 mb-6">Higher value = more search time</p>
 
-	<p>E-SERIES</p>
+	<p>
+		E-SERIES 
+		<InfoTooltip>
+			<p class="mb-2">Each combination is generated from one E-series only.</p>
+			<p>For example, a combination may contain E24 + E24, but never something like E24 + E48</p>
+		</InfoTooltip>
+	</p>
 	<ESeriesSelector bind:e24Subset={selectedE24Subset} bind:e96Subset={selectedE96Subset} bind:useE192={e192Selected}/>
 
 	<p class="mt-4">CUSTOM VALUES</p>
-	<textarea class="mb-6"></textarea>
+	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented. PR's welcome" disabled></textarea>
+	<p class="opacity-50 text-right">0/1000</p>
 
-	<div class="w-full flex justify-between opacity-50">
+	<div class="w-full flex justify-between opacity-50 mt-6">
 		<p>Library size</p>
 		<p>{libSize} values</p>
 	</div>

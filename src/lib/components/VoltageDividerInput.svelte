@@ -38,7 +38,7 @@
 	    [Input.MaxCurrent]:   		req.constraint.type === "current"   ? String(req.constraint.max) : "",
 	});
 
-	let constraintType: 'impedance' | 'current' = $state('current');
+	let constraintType: 'impedance' | 'current' = $state(req.constraint.type);
 	let vInParsed = $derived(parseValue(inputs[Input.Vin]).map(v => v.value));
 	let vOutParsed = $derived(parseValue(inputs[Input.Vout]).map(v => v.value));
 	let maxOutputImpedanceParsed = $derived(parseValue(inputs[Input.MaxOutputImpedance]).map(v => v.value));
@@ -116,7 +116,7 @@
 			Vin must be greater than Vout
 		{/if}
 	</p>
-	<p class="mb-6 opacity-50">Type with prefix: 3.3k, 4k7</p>
+	<p class="mb-4 opacity-50">Type with prefix: 3.3k, 4k7</p>
 
 	{@render inputBox("Max Output Impedance", Input.MaxOutputImpedance, 'Ω')}
 
@@ -141,7 +141,7 @@
 		{/if}
 	</div>
 	<p class="text-rose-500">
-		{#if (constraintType === "impedance" && !(minImpedanceParsed.isOk && minImpedanceParsed.isOk)) || (constraintType === "current" && !(minCurrentParsed.isOk && maxCurrentParsed.isOk))}
+		{#if (constraintType === "impedance" && !(minImpedanceParsed.isOk && maxImpedanceParsed.isOk)) || (constraintType === "current" && !(minCurrentParsed.isOk && maxCurrentParsed.isOk))}
 			Failed to parse
 		{/if}
 	</p>
@@ -172,8 +172,8 @@
 	<ESeriesSelector bind:e24Subset={req.e24Subset} bind:e96Subset={req.e96Subset} bind:useE192={req.useE192}/>
 
 	<p class="mt-4">CUSTOM VALUES</p>
-	<textarea class="bg-bg-200 border border-gray-300"></textarea>
-	<p class="opacity-50 text-right">0/10000</p>
+	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented. PR's welcome." disabled></textarea>
+	<p class="opacity-50 text-right">0/1000</p>
 
 	<div class="w-full flex justify-between opacity-50 mt-6">
 		<p>Library size</p>
