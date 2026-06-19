@@ -2,12 +2,15 @@ import { MathUtil } from "$lib/math";
 import { type Cache } from "$lib/stores/cache";
 import { FixedReverseHeap } from "mnemonist";
 import { isValueBaseInEseries, type ESeries } from "../../eseries";
+import type { Combination } from "./resistor";
+import type { VoltageDividerCombination } from "./voltage-divider";
+import { isCombinationVoltageDivider } from "$lib/util";
 
 export const ONE_MILLI = 1e-3;
 
 export type Peekable<T> = FixedReverseHeap<T> & { peek(): T | undefined };
 
-const START_DECADE = -3;
+const START_DECADE = -1;
 
 export function decadeBounds(cache: Cache, minDecade: number, maxDecade: number) {
 	const basesLen = cache.eSeries;
@@ -106,4 +109,26 @@ export function* closestCombinations(cache: Cache, combinationArray: 'series' | 
 		right++;
 		yielded++;
 	}
+}
+
+export function numComponents(c: Combination | VoltageDividerCombination): number {
+	function runOnType(t: any) {
+		switch (t) {
+			case 'single': return 1;
+			case 'series':
+			case 'parallel': return 2;
+			default: return 3;
+		}
+	}
+
+	if (!isCombinationVoltageDivider(c)) {
+		return runOnType(c.type)
+	} else {
+		return runOnType(c.top.type) + runOnType(c.bottom.type);
+	}
+}
+
+export function compareCombinations(a: Combination | VoltageDividerCombination, b: Combination | VoltageDividerCombination): number {
+	if (Math.abs(a.percentDiff - b.percentDiff) > 1e-6) return a.percentDiff - b.percentDiff;
+	return numComponents(a) - numComponents(b);
 }

@@ -6,7 +6,7 @@ import { generateESeriesValues, type CachedESeries, type ESeries } from "../eser
 import type { Result } from "true-myth";
 import { err, ok } from "true-myth/result";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const OPFS_DIR = `precomputed-v${CACHE_VERSION}`;
 
 function radixSortIndices(values: Float32Array): Uint32Array {
@@ -77,7 +77,7 @@ function generateResistorCombinations(resistors: number[]) {
 }
 
 function generateResistorCombinationsForESeries(eSeries: CachedESeries) {
-	let values = generateESeriesValues(eSeries, -3, 7);
+	let values = generateESeriesValues(eSeries, -1, 7);
 	let combInfo = generateResistorCombinations(values);
 
 	let results = {

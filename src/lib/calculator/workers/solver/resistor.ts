@@ -3,7 +3,7 @@ import { e192CacheStore, e24CacheStore, e96CacheStore, iterResistorValuesFromCac
 import { FixedReverseHeap } from "mnemonist";
 import { get } from "svelte/store";
 import { type E96Subset, type E24Subset, type ESeries, isValueBaseInEseries } from "../../eseries";
-import { ONE_MILLI, decadeBounds, binarySearchWithIndices, closestCombinations, type Peekable } from "./util";
+import { ONE_MILLI, decadeBounds, binarySearchWithIndices, closestCombinations, type Peekable, compareCombinations } from "./util";
 
 export type Combination =
 	| {
@@ -100,8 +100,7 @@ export function findClosestResistorValuesN2(ohms: number, e24Subset: E24Subset |
 		heap.push(r);
 	}
 
-	return (heap.consume() as Array<Combination>)
-		.sort((a, b) => a.percentDiff - b.percentDiff);
+	return (heap.consume() as Array<Combination>).sort(compareCombinations);
 }
 
 // Can't use generators in a hot loop because we'd be thrashing the GC
@@ -117,7 +116,7 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 
 	let heap = new FixedReverseHeap<Combination>(
 		Array,
-		(a, b) => a.percentDiff - b.percentDiff,
+		compareCombinations,
 		20
 	) as any as Peekable<Combination>;
 
@@ -275,7 +274,7 @@ export function findClosestResistorValuesN3(ohms: number, e24Subset: E24Subset |
 		heap.push(r);
 	}
 
-	let arr = (heap.consume() as Array<Combination>).sort((a, b) => a.percentDiff - b.percentDiff);
+	let arr = (heap.consume() as Array<Combination>).sort(compareCombinations);
 	for (let c of arr) {
 		c.percentDiff = c.percentDiff / ohms * 100;
 	}

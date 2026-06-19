@@ -3,7 +3,7 @@ import { e192CacheStore, e24CacheStore, e96CacheStore, type Cache } from "$lib/s
 import { FixedReverseHeap } from "mnemonist";
 import { get } from "svelte/store";
 import { type E96Subset, type E24Subset, type ESeries, isValueBaseInEseries } from "../../eseries";
-import { decadeBounds, binarySearch, type Peekable, binarySearchWithIndices } from "./util";
+import { decadeBounds, binarySearch, type Peekable, binarySearchWithIndices, compareCombinations } from "./util";
 
 type ArmSingle = { type: 'single'; v1: number };
 type ArmMulti = { type: 'series' | 'parallel'; v1: number; v2: number };
@@ -360,6 +360,5 @@ export function solveVoltageDividerN3(
 		heap.push(r);
 	}
 
-	return (heap.consume() as Array<VoltageDividerCombination>)
-		.sort((a, b) => a.percentDiff - b.percentDiff);
+	return (heap.consume() as Array<VoltageDividerCombination>).sort(compareCombinations);
 }
