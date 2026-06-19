@@ -7,6 +7,9 @@
  *
  * The single letter does double duty: it sets the SI multiplier *and*,
  * when it sits between digits, marks the decimal point.
+ *
+ * Infinity is accepted as "∞", "inf" or "infinity" (any case), with an
+ * optional unit suffix (e.g. "∞Ω", "∞R", "infF"); it yields value = Infinity.
  */
 
 import type { Result } from "true-myth";
@@ -45,6 +48,9 @@ const SCALE_UNIT_HINT: Record<string, Unit> = {
 	k: "ohm", K: "ohm", M: "ohm", G: "ohm", T: "ohm",
 };
 
+/** Matches "∞", "inf" or "infinity" (any case) with an optional unit suffix. */
+const INFINITY_RE = /^(?:∞|infinity|inf)([a-zA-ZµΩ]+)?$/i;
+
 /** Classify a single letter that may be a multiplier, a unit, or both. */
 function classify(letter: string): Result<{ multiplier: number; unit: Unit }, string> {
 	// Pure unit (R, V, F, A, H, Ω) -> ×1.
@@ -76,8 +82,8 @@ function classifySuffix(letters: string): Result<{ multiplier: number; unit: Uni
 /**
  * Parse a component value string into its numeric value, multiplier and unit.
  *
- * @param input        e.g. "4K7", "4.7K", "4V7", "4.7uF", "10kΩ", "220R", "-1.5K"
- * @param defaultUnit  used only when the unit can't be inferred (e.g. "100", "5m").
+ * @param input        e.g. "4K7", "4.7K", "4V7", "4.7uF", "10kΩ", "220R", "-1.5K", "∞", "infF"
+ * @param defaultUnit  used only when the unit can't be inferred (e.g. "100", "5m", "∞").
  */
 export function parseValue(input: string, defaultUnit?: Unit): Result<ParsedValue, string> {
 	const raw = input;
@@ -86,6 +92,33 @@ export function parseValue(input: string, defaultUnit?: Unit): Result<ParsedValu
 	let sign = 1;
 	if (s.startsWith("+")) s = s.slice(1);
 	else if (s.startsWith("-")) { sign = -1; s = s.slice(1); }
+
+	// Infinity: "∞" / "inf" / "infinity" with an optional unit suffix.
+	// Handled before the numeric regex so "inf" isn't mistaken for unit letters;
+	// sign handling above lets "-∞" / "-inf" yield -Infinity naturally.
+	const inf = s.match(INFINITY_RE);
+	if (inf) {
+		let unit: Unit = "unknown";
+		const suffix = inf[1];
+		if (suffix) {
+			// A bare unit is fine (∞Ω, infF); a multiplier (∞K, ∞n, ∞M, …) is not.
+			// Anything else falls through to the usual unknown-unit error.
+			const r = classifySuffix(suffix);
+			if (r.isErr) return err(r.error);
+			if (r.value.multiplier !== 1) {
+				return err(`Infinity cannot take a multiplier: "${raw}"`);
+			}
+			unit = r.value.unit;
+		}
+		if (defaultUnit && unit === "unknown") unit = defaultUnit;
+		return ok({
+			value: sign * Infinity,
+			significand: sign * Infinity,
+			multiplier: 1,
+			unit,
+			raw,
+		});
+	}
 
 	// head = leading number (maybe with "."), letters = unit/multiplier, tail = RKM fraction
 	const m = s.match(/^(\d*\.?\d*)([a-zA-ZµΩ]+)?(\d*)$/);

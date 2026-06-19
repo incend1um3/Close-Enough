@@ -39,15 +39,64 @@
 	});
 
 	const ensureNonNegative = (v: number) => v >= 0 ? ok(v) : err("Value cannot be negative!");
+	const ensureUnitVolts = (v: ParsedValue) => v.unit === "volt" ? ok(v) : err("Invalid unit");
+	const ensureUnitOhms = (v: ParsedValue) => v.unit === "ohm" ? ok(v) : err("Invalid unit");
+	const ensureUnitAmps = (v: ParsedValue) => v.unit === "amp" ? ok(v) : err("Invalid unit");
 	
 	let constraintType: 'impedance' | 'current' = $state(req.constraint.type);
-	let vInParsed = $derived(parseValue(inputs[Input.Vin]).map(v => v.value).andThen(ensureNonNegative));
-	let vOutParsed = $derived(parseValue(inputs[Input.Vout]).map(v => v.value).andThen(ensureNonNegative));
-	let maxOutputImpedanceParsed = $derived(parseValue(inputs[Input.MaxOutputImpedance]).map(v => v.value).andThen(ensureNonNegative));
-	let minImpedanceParsed = $derived(parseValue(inputs[Input.MinImpedance]).map(v => v.value).andThen(ensureNonNegative));
-	let maxImpedanceParsed = $derived(!inputs[Input.MaxImpedance].trim() ? ok(Infinity) : parseValue(inputs[Input.MaxImpedance]).map(v => v.value).andThen(ensureNonNegative));
-	let minCurrentParsed = $derived(!inputs[Input.MinCurrent].trim() ? ok(0) : parseValue(inputs[Input.MinCurrent]).map(v => v.value).andThen(ensureNonNegative));
-	let maxCurrentParsed = $derived(parseValue(inputs[Input.MaxCurrent]).map(v => v.value).andThen(ensureNonNegative));
+	
+	let vInParsed = $derived(
+		parseValue(inputs[Input.Vin], "volt")
+		.andThen(ensureUnitVolts)
+		.map(v => v.value)
+		.andThen(ensureNonNegative)
+	);
+
+	let vOutParsed = $derived(
+		parseValue(inputs[Input.Vout], "volt")
+		.andThen(ensureUnitVolts)
+		.map(v => v.value)
+		.andThen(ensureNonNegative)
+	);
+
+	let maxOutputImpedanceParsed = $derived(
+		!inputs[Input.MaxOutputImpedance].trim()
+		? ok(Infinity)
+		: parseValue(inputs[Input.MaxOutputImpedance], "ohm")
+			.andThen(ensureUnitOhms)
+			.map(v => v.value)
+			.andThen(ensureNonNegative)
+	);
+
+	let minImpedanceParsed = $derived(
+		parseValue(inputs[Input.MinImpedance], "ohm")
+		.andThen(ensureUnitOhms)
+		.map(v => v.value)
+		.andThen(ensureNonNegative)
+	);
+
+	let maxImpedanceParsed = $derived(
+		!inputs[Input.MaxImpedance].trim() 
+		? ok(Infinity) 
+		: parseValue(inputs[Input.MaxImpedance], "ohm")
+			.andThen(ensureUnitOhms)
+			.map(v => v.value)
+			.andThen(ensureNonNegative));
+
+	let minCurrentParsed = $derived(
+		!inputs[Input.MinCurrent].trim() 
+		? ok(0) 
+		: parseValue(inputs[Input.MinCurrent], "amp")
+			.andThen(ensureUnitAmps)
+			.map(v => v.value)
+			.andThen(ensureNonNegative));
+
+	let maxCurrentParsed = $derived(
+		parseValue(inputs[Input.MaxCurrent], "amp")
+		.andThen(ensureUnitAmps)
+		.map(v => v.value)
+		.andThen(ensureNonNegative)
+	);
 
 	let voutGreaterThanVin = $derived(
 		vInParsed.isOk && vOutParsed.isOk && vOutParsed.value >= vInParsed.value
@@ -78,15 +127,15 @@
 		}
 		if (minCurrentParsed.isOk && maxCurrentParsed.isOk && constraintType === 'current') {
 			req.constraint.type = 'current';
-			req.constraint.min = minCurrentParsed.value,
-			req.constraint.max = maxCurrentParsed.value
+			req.constraint.min = minCurrentParsed.value;
+			req.constraint.max = maxCurrentParsed.value;
 		}
 	});
 
 	let libSize = $derived(
-		(get(e24CacheStore)?.sortedSeriesIndices.length || 0) +
-		(get(e96CacheStore)?.sortedSeriesIndices.length || 0) +
-		(get(e192CacheStore)?.sortedSeriesIndices.length || 0)
+		($e24CacheStore?.sortedSeriesIndices.length || 0) +
+		($e96CacheStore?.sortedSeriesIndices.length || 0) +
+		($e192CacheStore?.sortedSeriesIndices.length || 0)
 	);
 </script>
 
@@ -106,14 +155,14 @@
 	</div>
 {/snippet}
 
-<div class="p-8 border border-gray-300 shadow-sm bg-amber-50 self-start {rest.class}">
-	<div class="flex gap-8">
+<div class="p-4 sm:p-8 border border-gray-300 shadow-sm bg-amber-50 self-start {rest.class}">
+	<div class="flex gap-4 sm:gap-8">
 		{@render inputBox("Vin", Input.Vin, 'V')}
 		{@render inputBox("Vout", Input.Vout, 'V')}
 	</div>
 	<p class="text-rose-500">
 		{#if !vInParsed.isOk || !vOutParsed.isOk}
-			Failed to parse
+			Failed to parse: {vInParsed.isErr ? vInParsed.error : (vOutParsed as any).error}
 		{:else if voutGreaterThanVin}
 			Vin must be greater than Vout
 		{/if}
@@ -121,7 +170,11 @@
 	<p class="mb-4 opacity-50">Type with prefix: 3.3k, 4k7</p>
 
 	{@render inputBox("Max Output Impedance", Input.MaxOutputImpedance, 'Ω')}
-
+	<p class="text-rose-500">
+		{#if !maxOutputImpedanceParsed.isOk}
+			Failed to parse: {maxOutputImpedanceParsed.error}
+		{/if}
+	</p>
 	<div class="mt-4 flex gap-4 items-center">
 		<p>CONSTRAINT TYPE:</p>
 		<div class="flex relative w-fit
@@ -133,7 +186,7 @@
 		</div>
 	</div>
 
-	<div class="flex gap-8 mt-2">
+	<div class="flex gap-4 sm:gap-8 mt-2">
 		{#if constraintType === "impedance"}
 			{@render inputBox("Min Impedance", Input.MinImpedance, 'Ω')}
 			{@render inputBox("Max Impedance", Input.MaxImpedance, 'Ω')}
@@ -163,7 +216,6 @@
 	</div>
 	<p class="opacity-50 mb-6">Higher value = more search time</p>
 
-	
 	<p>
 		E-SERIES 
 		<InfoTooltip>
@@ -174,7 +226,7 @@
 	<ESeriesSelector bind:e24Subset={req.e24Subset} bind:e96Subset={req.e96Subset} bind:useE192={req.useE192}/>
 
 	<p class="mt-4">CUSTOM VALUES</p>
-	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented. PR's welcome." disabled></textarea>
+	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented." disabled></textarea>
 	<p class="opacity-50 text-right">0/1000</p>
 
 	<div class="w-full flex justify-between opacity-50 mt-6">

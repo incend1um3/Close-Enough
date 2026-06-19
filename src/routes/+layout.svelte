@@ -45,7 +45,7 @@
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
-<main class="p-2 sm:p-11 min-h-dvh">
+<main class="p-1 sm:p-10 min-h-dvh">
 	{@render children()}
 </main>
 

@@ -24,7 +24,7 @@
 		children
 	}: Props = $props();
 
-	const tooltipId = `info-tooltip-${crypto.randomUUID()}`;
+	const tooltipId = $props.id();
 
 	let visible = $state(false);
 	let position = $state<'top' | 'bottom'>('top');

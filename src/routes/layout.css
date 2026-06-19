@@ -8,9 +8,8 @@
 }
 
 @layer base {
-	* {
-		font-size: 16px;
-		@apply font-mono;
+	html {
+		@apply font-mono text-[0.875rem] sm:text-base;
 	}
 
 	body {

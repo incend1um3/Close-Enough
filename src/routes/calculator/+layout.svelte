@@ -128,10 +128,10 @@
 </script>
 
 <div class="flex flex-col">
-	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-6 flex-wrap">
-		<div class="flex">
-			<p class="text-5xl hidden sm:block">Close Enough —&nbsp;</p>
-			<h1 class="text-5xl">{activeId === "resistor" ? "Resistor Combination Solver" : "Voltage Divider Solver"}</h1>
+	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-5 flex-wrap">
+		<div class="flex text-center md:text-start">
+			<p class="text-4xl hidden text-nowrap site-name">Close Enough —&nbsp;</p>
+			<h1 class="text-4xl">{activeId === "resistor" ? "Resistor Combination Solver" : "Voltage Divider Solver"}</h1>
 		</div>
 	</div>
 
@@ -142,3 +142,11 @@
 	
 	{@render children()}
 </div>
+
+<style>
+	.site-name {
+		@media (width >= 58rem) {
+			display: block;
+		}
+	}
+</style>

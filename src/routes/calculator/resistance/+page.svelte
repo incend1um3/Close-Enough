@@ -73,7 +73,7 @@
 			<LoadingWidget text="Solving..."/>
 		{:then results}
 			{#if results && results.length > 0}
-				<div class="flex flex-col gap-3 flex-3 min-w-96">
+				<div class="flex flex-col gap-3 flex-3">
 					<BestMatch selectedCombination={results[0]} targetValue={context.resistance.computeReq.target} solveTime={context.resistance.solveTime}/>
 					<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
 					<div 

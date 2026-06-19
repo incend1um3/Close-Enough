@@ -46,9 +46,9 @@
 	});
 
 	let libSize = $derived(
-		(get(e24CacheStore)?.sortedSeriesIndices.length || 0) +
-		(get(e96CacheStore)?.sortedSeriesIndices.length || 0) +
-		(get(e192CacheStore)?.sortedSeriesIndices.length || 0)
+		($e24CacheStore?.sortedSeriesIndices.length || 0) +
+		($e96CacheStore?.sortedSeriesIndices.length || 0) +
+		($e192CacheStore?.sortedSeriesIndices.length || 0)
 	);
 </script>
 
@@ -107,7 +107,7 @@
 	<ESeriesSelector bind:e24Subset={selectedE24Subset} bind:e96Subset={selectedE96Subset} bind:useE192={e192Selected}/>
 
 	<p class="mt-4">CUSTOM VALUES</p>
-	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented. PR's welcome" disabled></textarea>
+	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented." disabled></textarea>
 	<p class="opacity-50 text-right">0/1000</p>
 
 	<div class="w-full flex justify-between opacity-50 mt-6">
