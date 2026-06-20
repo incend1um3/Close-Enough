@@ -1,48 +1,36 @@
 <script lang="ts">
-	import { ESERIES_LIST, type E24Subset, type E96Subset, type ESeries } from "$lib/calculator/eseries";
 	import { parseValue } from "$lib/parse-value";
 	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
-	import { get } from "svelte/store";
 	import Result, { err, ok } from "true-myth/result";
 	import ESeriesSelector from "./ESeriesSelector.svelte";
 	import InfoTooltip from "./InfoTooltip.svelte";
+	import type { ComputeRequest } from "$lib/calculator/workers/solver";
 
 	let { 
-		v1 = $bindable(), 
-		v2 = $bindable(undefined),
-		v1Label,
-		v2Label,
-		n = $bindable(),
-		selectedE24Subset = $bindable(24),
-		selectedE96Subset = $bindable(96),
-		e192Selected = $bindable(false),
-		symbol,
+		computeReq: req = $bindable(),
+		error = $bindable(),
 		...rest
 	}: { 
-		v1: number, 
-		v2?: number, 
-		v1Label: string,
-		v2Label?: string,
-		n: number,
-		selectedE24Subset: E24Subset | null,
-		selectedE96Subset: E96Subset | null,
-		e192Selected: boolean,
-		symbol: string,
+		computeReq: ComputeRequest,
+		error: boolean,
 		class?: string,
 	} = $props();
 
-	let inputs = $state({ 1: String(v1 ?? ""), 2: String(v2 ?? "") });
+	let input = $state(String(req.target ?? ""));
 
-	let input1Scaled = $derived(parseValue(inputs[1]).andThen(v => v.value > 0 ? ok(v) : err("Value cannot be negative!")));
-	let input2Scaled = $derived(parseValue(inputs[2]));
+	let inputParsed = $derived(parseValue(input).andThen(v => v.value > 0 ? ok(v) : err("Value must be greater than zero!")));
 
 	$effect(() => {
-		if (input1Scaled.isOk) {
-			v1 = input1Scaled.value.value;
+		if (inputParsed.isOk) {
+			req.target = inputParsed.value.value;
 		}
-		if (input2Scaled.isOk) {
-			v2 = input2Scaled.value.value;
-		}
+	});
+
+	$effect(() => {
+		error = !(
+			inputParsed.isOk &&
+			(req.e24Subset || req.e96Subset || req.useE192)
+		);
 	});
 
 	let libSize = $derived(
@@ -52,31 +40,22 @@
 	);
 </script>
 
-{#snippet inputBox(label: string, input: 1 | 2)}
+<div class="p-8 border border-gray-300 shadow-sm w-fit bg-amber-50 self-start min-w-[340px] {rest.class}">
 	<div class="flex flex-col flex-1">
-		<p>{label}</p>
+		<p>TARGET RESISTANCE</p>
 		<div class="flex gap-4 items-stretch border border-gray-300">
 			<input
 				type="text"
-				bind:value={inputs[input]}
+				bind:value={input}
 				class="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-2xl tracking-wide"
 			>
 			<div class="p-2 border-l border-gray-300 aspect-square text-center items-center text-2xl font-bold">
-				{symbol}
+				Ω
 			</div>
 		</div>
 	</div>
-{/snippet}
-
-<div class="p-8 border border-gray-300 shadow-sm w-fit bg-amber-50 self-start min-w-[340px] {rest.class}">
-	<div class="flex gap-8">
-		{@render inputBox(v1Label, 1)}
-		{#if v2Label}
-			{@render inputBox(v2Label, 2)}
-		{/if}
-	</div>
-	{#if input1Scaled.isOk}
-		<p class="opacity-50">= {input1Scaled.value.value}{symbol}</p>
+	{#if inputParsed.isOk}
+		<p class="opacity-50">= {inputParsed.value.value}Ω</p>
 	{:else}
 		<p class="text-rose-500">Failed to parse</p>
 	{/if}
@@ -86,10 +65,10 @@
 	<div class="flex gap-4">
 		{#each [1, 2, 3] as i}
 			<button
-				data-selected={n === i}
+				data-selected={req.n === i}
 				class="border border-gray-300 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-500 
 				w-12 h-12 font-bold flex items-center justify-center rounded-sm text-xl" 
-				onclick={() => n = i}
+				onclick={() => req.n = i as any}
 			>
 				{i}
 			</button>
@@ -104,7 +83,7 @@
 			<p>For example, a combination may contain E24 + E24, but never something like E24 + E48</p>
 		</InfoTooltip>
 	</p>
-	<ESeriesSelector bind:e24Subset={selectedE24Subset} bind:e96Subset={selectedE96Subset} bind:useE192={e192Selected}/>
+	<ESeriesSelector bind:e24Subset={req.e24Subset} bind:e96Subset={req.e96Subset} bind:useE192={req.useE192}/>
 
 	<p class="mt-4">CUSTOM VALUES</p>
 	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented." disabled></textarea>

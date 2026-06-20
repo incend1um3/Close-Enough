@@ -59,13 +59,8 @@
 
 <div class="flex gap-12 flex-wrap">
 	<ValueInput 
-		v1Label="TARGET RESISTANCE" 
-		bind:v1={context.resistance.computeReq.target} 
-		bind:n={context.resistance.computeReq.n} 
-		bind:selectedE24Subset={context.resistance.computeReq.e24Subset} 
-		bind:selectedE96Subset={context.resistance.computeReq.e96Subset} 
-		bind:e192Selected={context.resistance.computeReq.useE192}
-		symbol="Ω"
+		bind:computeReq={context.resistance.computeReq}
+		bind:error={context.resistance.inputError}
 		class="flex-2"
 	/>
 	{#if !context.resistance.inputError}

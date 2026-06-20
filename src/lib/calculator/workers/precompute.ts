@@ -168,7 +168,7 @@ function deserializeCache(bytes: Uint8Array<SharedArrayBuffer>): Result<Cache, u
 		parallelResults: nextFloat32Array(),
 		r1s: nextFloat32Array(),
 		r2s: nextFloat32Array(),
-		resistorValues: new Float32Array(new SharedArrayBuffer(MathUtil.inverseTriangularNumber(view.getUint32(8, true)) * 4)),
+		resistorValues: new Float32Array(new SharedArrayBuffer(0)),
 	})
 }
 

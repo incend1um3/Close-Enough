@@ -2,7 +2,6 @@
 	import type { VoltageDividerComputeRequest } from "$lib/calculator/workers/solver";
 	import { parseValue, type ParsedValue } from "$lib/parse-value";
 	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
-	import { get } from "svelte/store";
 	import ESeriesSelector from "./ESeriesSelector.svelte";
 	import { err, ok } from "true-myth/result";
 	import InfoTooltip from "./InfoTooltip.svelte";
@@ -101,16 +100,23 @@
 	let voutGreaterThanVin = $derived(
 		vInParsed.isOk && vOutParsed.isOk && vOutParsed.value >= vInParsed.value
 	);
+	let minImpedanceOrCurrentGreaterThanMax = $derived(
+		constraintType === 'impedance'
+		? minImpedanceParsed.isOk && maxImpedanceParsed.isOk && minImpedanceParsed.value >= maxImpedanceParsed.value
+		: minCurrentParsed.isOk && maxCurrentParsed.isOk && minCurrentParsed.value >= maxCurrentParsed.value
+	);
 
 	$effect(() => {
 		error = !(
 			vInParsed.isOk && vOutParsed.isOk && !voutGreaterThanVin &&
 			maxOutputImpedanceParsed.isOk &&
+			(req.e24Subset || req.e96Subset || req.useE192) &&
 			(constraintType === 'impedance' 
 				? (minImpedanceParsed.isOk && maxImpedanceParsed.isOk) 
-				: (minCurrentParsed.isOk && maxCurrentParsed.isOk))
+				: (minCurrentParsed.isOk && maxCurrentParsed.isOk)) &&
+			!minImpedanceOrCurrentGreaterThanMax
 		);
-	})
+	});
 
 	$effect(() => {
 		if (vInParsed.isOk && vOutParsed.isOk && !voutGreaterThanVin) {
@@ -198,6 +204,8 @@
 	<p class="text-rose-500">
 		{#if (constraintType === "impedance" && !(minImpedanceParsed.isOk && maxImpedanceParsed.isOk)) || (constraintType === "current" && !(minCurrentParsed.isOk && maxCurrentParsed.isOk))}
 			Failed to parse
+		{:else if minImpedanceOrCurrentGreaterThanMax}
+			Maximum value must be greater than minimum!
 		{/if}
 	</p>
 
