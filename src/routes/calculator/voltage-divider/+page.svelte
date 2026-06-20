@@ -70,7 +70,7 @@
 				<div class="flex flex-col gap-3 flex-3">
 					<BestMatch selectedCombination={results[0]} targetValue={context.voltageDivider.computeReq.vout} solveTime={context.voltageDivider.solveTime}/>
 					<p class="opacity-70 mt-5 tracking-wider">ALTERNATIVES</p>
-					<div class="grid grid-cols-[repeat(auto-fill,minmax(min(var(320px),100%),1fr))] gap-4">
+					<div class="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
 						{#each results.slice(1) as c}
 							<Match selectedCombination={c} targetValue={context.voltageDivider.computeReq.vout}/>
 						{/each}
