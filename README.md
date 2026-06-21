@@ -20,7 +20,7 @@
 </div>
 
 <p align="center">
-  <a href="https://close-enough.incendium.me"><strong>Try it live →</strong></a>
+  <a href="https://close-enough.app"><strong>Try it live →</strong></a>
 </p>
 
 
