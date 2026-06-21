@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { parseValue } from "$lib/parse-value";
 	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
-	import Result, { err, ok } from "true-myth/result";
+	import { err, ok } from "true-myth/result";
 	import ESeriesSelector from "./ESeriesSelector.svelte";
 	import InfoTooltip from "./InfoTooltip.svelte";
 	import type { ComputeRequest } from "$lib/calculator/workers/solver";
@@ -18,7 +18,10 @@
 
 	let input = $state(String(req.target ?? ""));
 
-	let inputParsed = $derived(parseValue(input).andThen(v => v.value > 0 ? ok(v) : err("Value must be greater than zero!")));
+	let inputParsed = $derived(parseValue(input, "ohm")
+		.andThen(v => v.value > 0 ? ok(v) : err("Value must be greater than zero!"))
+		.andThen(v => v.unit === "ohm" ? ok(v) : err("Invalid unit"))
+	);
 
 	$effect(() => {
 		if (inputParsed.isOk) {
@@ -57,9 +60,9 @@
 	{#if inputParsed.isOk}
 		<p class="opacity-50">= {inputParsed.value.value}Ω</p>
 	{:else}
-		<p class="text-rose-500">Failed to parse</p>
+		<p class="text-rose-500">Failed to parse: {inputParsed.error}</p>
 	{/if}
-	<p class="mb-4 opacity-50">Type with prefix: 3.3k, 4k7, 100n, 22µF</p>
+	<p class="mb-4 opacity-50">Type with prefix: 3.3k, 4k7</p>
 
 	<p>MAX NUMBER OF COMPONENTS</p>
 	<div class="flex gap-4">

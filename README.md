@@ -7,7 +7,7 @@
 </h1>
 
 <h4 align="center">
-    3-component resistor combination solver.
+    3-component resistor combination solver
 </h4>
 
 <div align="center">
@@ -39,11 +39,25 @@
 - Constrain results by an output or total impedance range
 - Select which E-Series subsets to solve with
 
+## Motivation
+
+Picking resistors for voltage dividers is annoying. You have to juggle multiple values and constraints at once, and working with a coarse set of values that manufacturers actually produce does not make that process any easier. You could hand the task off to an LLM, but that is slow and prone to errors.
+
 ## How it Works
+
+### Caching
 
 On first load, the site generates E-Series values over a decade range of -1 to 6, which covers 100mΩ all the way to ~9.88MΩ. It then iterates over those values, calculating series and parallel combinations for each resistor pair. Afterwards, a radix sort generates sorted indices which are then cached together with the rest of the values in an OPFS file.
 
 Generating the cache is inherently slow, as it's an O(N²) step, but it is what makes the actual solver incredibly fast. Instead of iterating over every possible combination, which would take O(N²) or O(N³) time, a cache simplifies query time to O(logN) and O(N logN) respectively.
+
+### Algorithm
+
+The solver never enumerates every single resistor network. Instead it exploits the fact that any series/parallel combination has a single degree of freedom: once you fix all but one component, the value the remaining piece *would need* to hit the target is a closed-form expression. So rather than searching combinations, the solver computes that ideal value and binary-searches the cache for the closest real one.
+
+For a **two-resistor** network, the algorithm is simple: binary search the cache then scan a few neighbors to collect the best matches. For a **3-resistor** network, the solver iterates over all resistor values, pinning each resistor as `r1`, then binary searches the cache for the optimal `r2` and `r3` pair. This approach reduces the problem to O(N logN), compared to an O(N³) brute-force solution.
+
+The algorithm works similarly for voltage dividers. Iterate over all resistor values, fix `r1`, calculate the optimal resistance for the other arm, then binary search the cache for the closest match.
 
 ## Development
 

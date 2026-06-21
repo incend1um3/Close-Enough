@@ -38,6 +38,7 @@
 	});
 
 	const ensureNonNegative = (v: number) => v >= 0 ? ok(v) : err("Value cannot be negative!");
+	const ensureGt0 = (v: number) => v > 0 ? ok(v) : err("Value must be greater than zero!");
 	const ensureUnitVolts = (v: ParsedValue) => v.unit === "volt" ? ok(v) : err("Invalid unit");
 	const ensureUnitOhms = (v: ParsedValue) => v.unit === "ohm" ? ok(v) : err("Invalid unit");
 	const ensureUnitAmps = (v: ParsedValue) => v.unit === "amp" ? ok(v) : err("Invalid unit");
@@ -48,14 +49,14 @@
 		parseValue(inputs[Input.Vin], "volt")
 		.andThen(ensureUnitVolts)
 		.map(v => v.value)
-		.andThen(ensureNonNegative)
+		.andThen(ensureGt0)
 	);
 
 	let vOutParsed = $derived(
 		parseValue(inputs[Input.Vout], "volt")
 		.andThen(ensureUnitVolts)
 		.map(v => v.value)
-		.andThen(ensureNonNegative)
+		.andThen(ensureGt0)
 	);
 
 	let maxOutputImpedanceParsed = $derived(
@@ -64,14 +65,16 @@
 		: parseValue(inputs[Input.MaxOutputImpedance], "ohm")
 			.andThen(ensureUnitOhms)
 			.map(v => v.value)
-			.andThen(ensureNonNegative)
+			.andThen(ensureGt0)
 	);
 
 	let minImpedanceParsed = $derived(
-		parseValue(inputs[Input.MinImpedance], "ohm")
-		.andThen(ensureUnitOhms)
-		.map(v => v.value)
-		.andThen(ensureNonNegative)
+		!inputs[Input.MinImpedance].trim()
+		? ok(0)
+		: parseValue(inputs[Input.MinImpedance], "ohm")
+			.andThen(ensureUnitOhms)
+			.map(v => v.value)
+			.andThen(ensureNonNegative)
 	);
 
 	let maxImpedanceParsed = $derived(
@@ -80,7 +83,7 @@
 		: parseValue(inputs[Input.MaxImpedance], "ohm")
 			.andThen(ensureUnitOhms)
 			.map(v => v.value)
-			.andThen(ensureNonNegative));
+			.andThen(ensureGt0));
 
 	let minCurrentParsed = $derived(
 		!inputs[Input.MinCurrent].trim() 
@@ -94,7 +97,7 @@
 		parseValue(inputs[Input.MaxCurrent], "amp")
 		.andThen(ensureUnitAmps)
 		.map(v => v.value)
-		.andThen(ensureNonNegative)
+		.andThen(ensureGt0)
 	);
 
 	let voutGreaterThanVin = $derived(
@@ -166,14 +169,13 @@
 		{@render inputBox("Vin", Input.Vin, 'V')}
 		{@render inputBox("Vout", Input.Vout, 'V')}
 	</div>
-	<p class="text-rose-500">
+	<p class="text-rose-500 mb-4">
 		{#if !vInParsed.isOk || !vOutParsed.isOk}
 			Failed to parse: {vInParsed.isErr ? vInParsed.error : (vOutParsed as any).error}
 		{:else if voutGreaterThanVin}
 			Vin must be greater than Vout
 		{/if}
 	</p>
-	<p class="mb-4 opacity-50">Type with prefix: 3.3k, 4k7</p>
 
 	{@render inputBox("Max Output Impedance", Input.MaxOutputImpedance, 'Ω')}
 	<p class="text-rose-500">
