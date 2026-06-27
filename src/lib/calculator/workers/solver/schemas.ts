@@ -31,12 +31,12 @@ const VoltageDividerComputeRequestBaseSchema = z.object({
 export const VoltageDividerComputeRequestSchema = z.discriminatedUnion("n", [
 	VoltageDividerComputeRequestBaseSchema.extend({
 		n: z.literal(2),
-		pinnedR1: z.number().nullable()
+		pinnedR1: z.number().nullable().default(null)
 	}),
 	VoltageDividerComputeRequestBaseSchema.extend({
 		n: z.literal(3),
-		pinnedR1: z.number().nullable(),
-		pinnedR2: z.number().nullable(),
+		pinnedR1: z.number().nullable().default(null),
+		pinnedR2: z.number().nullable().default(null),
 	}),
 ]);
 

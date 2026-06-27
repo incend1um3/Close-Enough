@@ -8,7 +8,11 @@
 	import {
 		parseComputeRequest,
 		parseVoltageDividerComputeRequest,
-		type SolverAPI
+		type ComputeRequest,
+		type SolverAPI,
+
+		type VoltageDividerComputeRequest
+
 
 	} from '$lib/calculator/workers/solver';
 	import { wrap } from 'comlink';
@@ -20,14 +24,18 @@
 	import Tab from '$lib/components/Tab.svelte';
 	import { debounce } from 'lodash-es';
 	import { untrack } from 'svelte';
+	import { tryOr } from 'true-myth/result';
 
 	let { children } = $props();
 
 	const context: SolverContext = $state({
 		resistance: {
 			computeReq: Maybe.of(browser ? localStorage.getItem('resistor-solver-values') : null)
-				.map((str) => toMaybe(parseComputeRequest(str)))
-				.flatten()
+				.andThen(str => {
+					try { return Maybe.just<ComputeRequest>(JSON.parse(str)) }
+					catch { return Maybe.nothing<ComputeRequest>() }
+				})
+				.andThen(obj => toMaybe(parseComputeRequest(obj)))
 				.unwrapOr({
 					target: 9.81,
 					n: 2,
@@ -41,8 +49,11 @@
 		},
 		voltageDivider: {
 			computeReq: Maybe.of(browser ? localStorage.getItem('voltage-divider-solver-values') : null)
-				.map((str) => toMaybe(parseVoltageDividerComputeRequest(str)))
-				.flatten()
+				.andThen(str => {
+					try { return Maybe.just<VoltageDividerComputeRequest>(JSON.parse(str)) }
+					catch { return Maybe.nothing<VoltageDividerComputeRequest>() }
+				})
+				.andThen(obj => toMaybe(parseVoltageDividerComputeRequest(obj)))
 				.unwrapOr({
 					vin: 5,
 					vout: 3.3,
