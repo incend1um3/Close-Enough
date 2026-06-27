@@ -15,7 +15,7 @@ export const ComputeRequestSchema = z.object({
 
 export const parseComputeRequest = parserFor(ComputeRequestSchema);
 
-export const VoltageDividerComputeRequestSchema = z.object({
+const VoltageDividerComputeRequestBaseSchema = z.object({
 	vin: z.number(),
 	vout: z.number(),
 	constraint: z.discriminatedUnion("type", [
@@ -23,11 +23,22 @@ export const VoltageDividerComputeRequestSchema = z.object({
 		z.object({ type: z.literal("impedance"), min: z.number(), max: z.number() }),
 	]),
 	maxOutputImpedance: z.number(),
-	n: z.number(),
 	e24Subset: E24SubsetSchema.nullable(),
 	e96Subset: E96SubsetSchema.nullable(),
 	useE192: z.boolean(),
 });
+
+export const VoltageDividerComputeRequestSchema = z.discriminatedUnion("n", [
+	VoltageDividerComputeRequestBaseSchema.extend({
+		n: z.literal(2),
+		pinnedR1: z.number().nullable()
+	}),
+	VoltageDividerComputeRequestBaseSchema.extend({
+		n: z.literal(3),
+		pinnedR1: z.number().nullable(),
+		pinnedR2: z.number().nullable(),
+	}),
+]);
 
 export const parseVoltageDividerComputeRequest = parserFor(VoltageDividerComputeRequestSchema);
 

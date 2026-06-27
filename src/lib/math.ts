@@ -8,8 +8,17 @@ export namespace MathUtil {
 	// 	return n*(n+1)/k
 	// }
 
-	// inverse of n(n+1)/2
+	/**
+	 * @returns inverse of n(n+1)/2
+	 */
 	export function inverseTriangularNumber(n: number) {
 		return Math.round((-1 + Math.sqrt(1 + 8 * n)) / 2);
-	} 
+	}
+
+	/**
+	 * 	@returns r1 * r2 / (r1 + r2)
+	 */
+	export function parallelResistance(r1: number, r2: number) {
+		return r1 * r2 / (r1 + r2);
+	}
 }

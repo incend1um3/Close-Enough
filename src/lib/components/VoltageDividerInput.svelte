@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { VoltageDividerComputeRequest } from "$lib/calculator/workers/solver";
 	import { parseValue, type ParsedValue } from "$lib/parse-value";
-	import { e192CacheStore, e24CacheStore, e96CacheStore } from "$lib/stores/cache";
 	import ESeriesSelector from "./ESeriesSelector.svelte";
 	import { err, ok } from "true-myth/result";
 	import InfoTooltip from "./InfoTooltip.svelte";
@@ -24,6 +23,8 @@
 	    MaxImpedance:			4,
 		MinCurrent:				5,
 	    MaxCurrent:				6,
+	    PinnedR1:				7,
+	    PinnedR2:				8,
 	} as const;
 	type Input = typeof Input[keyof typeof Input];
 
@@ -35,6 +36,8 @@
 	    [Input.MaxImpedance]: 		req.constraint.type === "impedance" ? String(req.constraint.max) : "",
 	    [Input.MinCurrent]:   		req.constraint.type === "current"   ? String(req.constraint.min) : "",
 	    [Input.MaxCurrent]:   		req.constraint.type === "current"   ? String(req.constraint.max) : "",
+	    [Input.PinnedR1]:   		String(req.pinnedR1 ?? ""),
+	    [Input.PinnedR2]:   		String((req as any).pinnedR2 ?? ""),
 	});
 
 	const ensureNonNegative = (v: number) => v >= 0 ? ok(v) : err("Value cannot be negative!");
@@ -47,9 +50,9 @@
 	
 	let vInParsed = $derived(
 		parseValue(inputs[Input.Vin], "volt")
-		.andThen(ensureUnitVolts)
-		.map(v => v.value)
-		.andThen(ensureGt0)
+			.andThen(ensureUnitVolts)
+			.map(v => v.value)
+			.andThen(ensureGt0)
 	);
 
 	let vOutParsed = $derived(
@@ -95,9 +98,27 @@
 
 	let maxCurrentParsed = $derived(
 		parseValue(inputs[Input.MaxCurrent], "amp")
-		.andThen(ensureUnitAmps)
-		.map(v => v.value)
-		.andThen(ensureGt0)
+			.andThen(ensureUnitAmps)
+			.map(v => v.value)
+			.andThen(ensureGt0)
+	);
+
+	let pinnedR1Parsed = $derived(
+		!inputs[Input.PinnedR1].trim()
+		? ok(null)
+		: parseValue(inputs[Input.PinnedR1], "ohm")
+			.andThen(ensureUnitOhms)
+			.map(v => v.value)
+			.andThen(ensureGt0)
+	);
+
+	let pinnedR2Parsed = $derived(
+		!inputs[Input.PinnedR2].trim()
+		? ok(null)
+		: parseValue(inputs[Input.PinnedR2], "ohm")
+			.andThen(ensureUnitOhms)
+			.map(v => v.value)
+			.andThen(ensureGt0)
 	);
 
 	let voutGreaterThanVin = $derived(
@@ -108,6 +129,9 @@
 		? minImpedanceParsed.isOk && maxImpedanceParsed.isOk && minImpedanceParsed.value >= maxImpedanceParsed.value
 		: minCurrentParsed.isOk && maxCurrentParsed.isOk && minCurrentParsed.value >= maxCurrentParsed.value
 	);
+	let pinnedR1EqPinnedR2 = $derived(
+		pinnedR1Parsed.isOk && pinnedR2Parsed.isOk && pinnedR1Parsed.value === pinnedR2Parsed.value
+	);
 
 	$effect(() => {
 		error = !(
@@ -117,7 +141,8 @@
 			(constraintType === 'impedance' 
 				? (minImpedanceParsed.isOk && maxImpedanceParsed.isOk) 
 				: (minCurrentParsed.isOk && maxCurrentParsed.isOk)) &&
-			!minImpedanceOrCurrentGreaterThanMax
+			!minImpedanceOrCurrentGreaterThanMax &&
+			pinnedR1Parsed.isOk && ((pinnedR2Parsed.isOk && !pinnedR1EqPinnedR2) || req.n === 2)
 		);
 	});
 
@@ -139,21 +164,22 @@
 			req.constraint.min = minCurrentParsed.value;
 			req.constraint.max = maxCurrentParsed.value;
 		}
+		if (pinnedR1Parsed.isOk) {
+			req.pinnedR1 = pinnedR1Parsed.value;
+		}
+		if (pinnedR2Parsed.isOk && req.n === 3) {
+			req.pinnedR2 = pinnedR2Parsed.value;
+		}
 	});
-
-	let libSize = $derived(
-		($e24CacheStore?.sortedSeriesIndices.length || 0) +
-		($e96CacheStore?.sortedSeriesIndices.length || 0) +
-		($e192CacheStore?.sortedSeriesIndices.length || 0)
-	);
 </script>
 
-{#snippet inputBox(label: string, input: Input, symbol: string)}
-	<div class="flex flex-col flex-1">
+{#snippet inputBox(label: string, input: Input, symbol: string, disabled: boolean = false)}
+	<div class="flex flex-col flex-1 {disabled ? "opacity-30 cursor-not-allowed pointer-events-none" : ''}">
 		<p>{label}</p>
 		<div class="flex gap-4 items-stretch border border-gray-300">
 			<input
 				type="text"
+				disabled={disabled}
 				bind:value={inputs[input]}
 				class="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-2xl tracking-wide"
 			>
@@ -210,6 +236,24 @@
 			Maximum value must be greater than minimum!
 		{/if}
 	</p>
+	
+	<p class="mt-4">
+		Pinned Values
+		<InfoTooltip>
+			<p class="mb-2">This allows you to generate combinations where the specified values will always be included.</p>
+		</InfoTooltip>
+	</p>
+	<div class="flex gap-4 sm:gap-8">
+		{@render inputBox("R1", Input.PinnedR1, 'Ω')}
+		{@render inputBox("R2", Input.PinnedR2, 'Ω', req.n !== 3)}
+	</div>
+	<p class="text-rose-500">
+		{#if pinnedR1Parsed.isErr || (pinnedR2Parsed.isErr && req.n < 3)}
+			Failed to parse: {pinnedR1Parsed.isErr ? pinnedR1Parsed.error : (pinnedR2Parsed as any).error}
+		{:else if req.n === 3 && pinnedR1EqPinnedR2}
+			R₁ must not be equal to R₂
+		{/if}
+	</p>
 
 	<p class="mt-4">MAX NUMBER OF COMPONENTS</p>
 	<div class="flex gap-4">
@@ -218,7 +262,7 @@
 				data-selected={req.n === i}
 				class="border border-gray-300 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-500 
 				w-12 h-12 font-bold flex items-center justify-center rounded-sm text-xl" 
-				onclick={() => req.n = i}
+				onclick={() => req.n = i as any}
 			>
 				{i}
 			</button>
@@ -238,9 +282,4 @@
 	<p class="mt-4">CUSTOM VALUES</p>
 	<textarea class="bg-bg-200 border border-gray-300 cursor-not-allowed" placeholder="Not yet implemented." disabled></textarea>
 	<p class="opacity-50 text-right">0/1000</p>
-
-	<div class="w-full flex justify-between opacity-50 mt-6">
-		<p>Library size</p>
-		<p>{libSize} values</p>
-	</div>
 </div>

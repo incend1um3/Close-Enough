@@ -49,6 +49,7 @@
 					constraint: { type: 'current', min: 0, max: 0.01 },
 					n: 2,
 					maxOutputImpedance: 100000,
+					pinnedR1: null,
 					e24Subset: 24,
 					e96Subset: null,
 					useE192: false
@@ -128,7 +129,7 @@
 </script>
 
 <div class="flex flex-col">
-	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-5 flex-wrap">
+	<div class="flex align-bottom items-end gap-x-8 mb-2 sm:mb-4 flex-wrap">
 		<div class="flex text-center md:text-start">
 			<p class="text-4xl hidden text-nowrap site-name">Close Enough —&nbsp;</p>
 			<h1 class="text-4xl">{activeId === "resistor" ? "Resistor Combination Solver" : "Voltage Divider Solver"}</h1>

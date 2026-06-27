@@ -3,6 +3,7 @@ import { expose } from 'comlink';
 import { type ComputeRequest, type VoltageDividerComputeRequest } from "./schemas";
 import { type Combination, findClosestResistorValuesN1, findClosestResistorValuesN2, findClosestResistorValuesN3 } from "./resistor";
 import { type VoltageDividerCombination, solveVoltageDividerN2, solveVoltageDividerN3 } from "./voltage-divider";
+import { Maybe } from "true-myth";
 
 export type { Combination } from "./resistor";
 export type { VoltageDividerCombination } from "./voltage-divider";
@@ -47,8 +48,8 @@ const api = {
 		}
 
 		switch (req.n) {
-			case 2: results = solveVoltageDividerN2(req.vin, req.vout, req.maxOutputImpedance, minImpedance, maxImpedance, req.e24Subset, req.e96Subset, req.useE192); break;
-			case 3: results = solveVoltageDividerN3(req.vin, req.vout, req.maxOutputImpedance, minImpedance, maxImpedance, req.e24Subset, req.e96Subset, req.useE192); break;
+			case 2: results = solveVoltageDividerN2(req.vin, req.vout, req.maxOutputImpedance, minImpedance, maxImpedance, Maybe.of(req.pinnedR1), req.e24Subset, req.e96Subset, req.useE192); break;
+			case 3: results = solveVoltageDividerN3(req.vin, req.vout, req.maxOutputImpedance, minImpedance, maxImpedance, Maybe.of(req.pinnedR1), Maybe.of(req.pinnedR2), req.e24Subset, req.e96Subset, req.useE192); break;
 			default: throw Error("invalid n");
 		}
 		console.log("solve body:", (performance.now() - t).toFixed(2), "ms");
